@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NotificationsForm } from "./Form";
+import { PushSubscribe } from "@/components/PushSubscribe";
 
 export default async function BildirimlerPage() {
   const session = await auth();
@@ -28,6 +29,7 @@ export default async function BildirimlerPage() {
           initialEmail={user.notifyEmail}
           initialApp={user.notifyApp}
         />
+        <PushSubscribe />
       </main>
     </>
   );

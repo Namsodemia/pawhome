@@ -1,6 +1,8 @@
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { categoryStyle } from "@/lib/utils";
 import { AddPostModal } from "@/components/AddPostModal";
+import { ForumPostCard } from "@/components/ForumPostCard";
 
 function timeAgo(date: Date): string {
   const diff = (Date.now() - date.getTime()) / 1000;
@@ -23,9 +25,20 @@ function getInitials(name: string): string {
 }
 
 export default async function ForumPage() {
+  const session = await auth();
+  const userId = Number(session!.user.id);
+
   const posts = await prisma.forumPost.findMany({
-    orderBy: { createdAt: "desc" },
-    include: { user: { select: { name: true } } },
+    where: { isDeleted: false },
+    orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+    include: {
+      user: { select: { name: true } },
+      _count: { select: { likes: true, comments: true } },
+      likes: {
+        where: { userId },
+        select: { id: true },
+      },
+    },
   });
 
   return (
@@ -75,50 +88,24 @@ export default async function ForumPage() {
             posts.map((post) => {
               const style = categoryStyle(post.category);
               return (
-                <article
+                <ForumPostCard
                   key={post.id}
-                  className="bg-white rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 active:scale-[0.99] transition-transform"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600 border border-slate-200">
-                        {getInitials(post.user.name)}
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">{post.user.name}</p>
-                        <p className="text-[10px] text-slate-400">{timeAgo(post.createdAt)}</p>
-                      </div>
-                    </div>
-                    <span
-                      className={`px-2 py-0.5 rounded-md ${style.color} text-[9px] font-bold uppercase tracking-wide border`}
-                    >
-                      {style.label}
-                    </span>
-                  </div>
-
-                  <h2 className="text-sm font-bold text-slate-800 mb-2 leading-snug">
-                    {post.title}
-                  </h2>
-                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-3 mb-3">
-                    {post.content}
-                  </p>
-
-                  <div className="flex items-center justify-between border-t border-slate-50 pt-3">
-                    <div className="flex gap-1.5">
-                      <span className="text-[10px] text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
-                        #{post.category}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 text-slate-400 text-xs">
-                      <button className="flex items-center gap-1 hover:text-pw-primary transition-colors">
-                        <i className="fa-regular fa-thumbs-up"></i> {post.likes}
-                      </button>
-                      <button className="flex items-center gap-1 hover:text-pw-primary transition-colors">
-                        <i className="fa-regular fa-comment"></i> {post.comments}
-                      </button>
-                    </div>
-                  </div>
-                </article>
+                  post={{
+                    id: post.id,
+                    title: post.title,
+                    content: post.content,
+                    category: post.category,
+                    categoryLabel: style.label,
+                    categoryColor: style.color,
+                    isPinned: post.isPinned,
+                    createdAtAgo: timeAgo(post.createdAt),
+                    authorName: post.user.name,
+                    authorInitials: getInitials(post.user.name),
+                    likes: post._count.likes,
+                    comments: post._count.comments,
+                    likedByMe: post.likes.length > 0,
+                  }}
+                />
               );
             })
           ) : (

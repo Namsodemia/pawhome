@@ -1,69 +1,40 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 
-const posts = [
-  {
-    slug: "kopek-asi-takvimi",
-    cat: "Sağlık",
-    catColor: "bg-red-100 text-red-700",
-    title: "Köpekler için aşı takvimi: 2026 güncel rehber",
-    excerpt: "Yavru köpeğin ilk 6 ayı kritik. Hangi aşıyı ne zaman yaptırmalısın, veteriner hekimle birlikte hazırladığımız rehber.",
-    date: "12 Mart 2026",
-    readTime: "6 dk",
-    emoji: "💉",
-  },
-  {
-    slug: "kedi-beslenmesi",
-    cat: "Beslenme",
-    catColor: "bg-green-100 text-green-700",
-    title: "Kediler için ideal beslenme: kuru mu, yaş mı?",
-    excerpt: "Yetişkin kediler için günlük kalori ihtiyacı, su tüketimi, mama seçimi. Yaygın hataları anlatıyoruz.",
-    date: "5 Mart 2026",
-    readTime: "8 dk",
-    emoji: "🍽️",
-  },
-  {
-    slug: "kopek-egitim-temel",
-    cat: "Eğitim",
-    catColor: "bg-blue-100 text-blue-700",
-    title: "Yavru köpek eğitiminde 5 temel kural",
-    excerpt: "Pozitif pekiştirme, tutarlılık, sabır. Eve yeni gelen yavruyla ilk haftalarda nelere dikkat etmeli?",
-    date: "28 Şubat 2026",
-    readTime: "5 dk",
-    emoji: "🎾",
-  },
-  {
-    slug: "vet-ne-zaman",
-    cat: "Sağlık",
-    catColor: "bg-red-100 text-red-700",
-    title: "Bunları görürsen acilen veterinere git",
-    excerpt: "8 acil durum belirtisi. Nefes darlığı, kusma, ishal, bilinç kaybı — hangisi ne anlama geliyor?",
-    date: "20 Şubat 2026",
-    readTime: "4 dk",
-    emoji: "🚨",
-  },
-  {
-    slug: "kedi-davranis",
-    cat: "Eğitim",
-    catColor: "bg-blue-100 text-blue-700",
-    title: "Kedinin davranışını anlama: 12 yaygın işaret",
-    excerpt: "Kuyruk hareketleri, mırlama, ısırma — kedinin sana ne söylemeye çalıştığını çöz.",
-    date: "15 Şubat 2026",
-    readTime: "7 dk",
-    emoji: "🐈",
-  },
-  {
-    slug: "yaz-sicagi",
-    cat: "Sağlık",
-    catColor: "bg-red-100 text-red-700",
-    title: "Yaz sıcağında köpeğini korumanın 10 yolu",
-    excerpt: "Sıcak çarpması belirtileri, su tüketimi, gezdirme saatleri. Yaz aylarında özel önlemler.",
-    date: "8 Şubat 2026",
-    readTime: "6 dk",
-    emoji: "☀️",
-  },
-];
+const categoryStyles: Record<string, { label: string; color: string }> = {
+  saglik: { label: "Sağlık", color: "bg-red-100 text-red-700" },
+  beslenme: { label: "Beslenme", color: "bg-green-100 text-green-700" },
+  egitim: { label: "Eğitim", color: "bg-blue-100 text-blue-700" },
+  hikaye: { label: "Hikaye", color: "bg-purple-100 text-purple-700" },
+  haber: { label: "Haber", color: "bg-amber-100 text-amber-700" },
+};
 
-export default function BlogPage() {
+function formatDateTR(d: Date): string {
+  return d.toLocaleDateString("tr-TR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export const revalidate = 60; // ISR: 60s
+
+export default async function BlogPage() {
+  const posts = await prisma.blogPost.findMany({
+    where: { status: "published" },
+    orderBy: { publishedAt: "desc" },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      excerpt: true,
+      coverEmoji: true,
+      category: true,
+      readTime: true,
+      publishedAt: true,
+    },
+  });
+
   return (
     <div className="max-w-6xl mx-auto px-5 py-16 md:py-20">
       <div className="text-center max-w-2xl mx-auto mb-14">
@@ -91,41 +62,44 @@ export default function BlogPage() {
         ))}
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {posts.map((p) => (
-          <Link
-            key={p.slug}
-            href={`/blog/${p.slug}`}
-            className="group bg-white border border-slate-100 rounded-2xl overflow-hidden hover:shadow-xl transition-shadow"
-          >
-            <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center text-6xl group-hover:scale-105 transition-transform">
-              {p.emoji}
-            </div>
-            <div className="p-5">
-              <span
-                className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${p.catColor}`}
+      {posts.length === 0 ? (
+        <div className="text-center py-20 text-slate-400">
+          <p>Henüz blog yazısı yayınlanmadı.</p>
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {posts.map((p) => {
+            const cat = categoryStyles[p.category] ?? categoryStyles.haber;
+            return (
+              <Link
+                key={p.id}
+                href={`/blog/${p.slug}`}
+                className="group bg-white border border-slate-100 rounded-2xl overflow-hidden hover:shadow-xl transition-shadow"
               >
-                {p.cat}
-              </span>
-              <h2 className="text-lg font-bold text-slate-900 mt-3 leading-snug group-hover:text-pw-primary transition-colors">
-                {p.title}
-              </h2>
-              <p className="text-sm text-slate-600 mt-2 line-clamp-2">{p.excerpt}</p>
-              <div className="flex items-center gap-3 mt-4 text-xs text-slate-400">
-                <span>{p.date}</span>
-                <span>·</span>
-                <span>{p.readTime} okuma</span>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      <div className="mt-14 text-center">
-        <button className="px-6 py-3 bg-white border border-slate-200 rounded-xl font-semibold text-sm text-slate-700 hover:border-pw-primary hover:text-pw-primary transition-colors">
-          Daha Fazla Yükle
-        </button>
-      </div>
+                <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center text-6xl group-hover:scale-105 transition-transform">
+                  {p.coverEmoji}
+                </div>
+                <div className="p-5">
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${cat.color}`}
+                  >
+                    {cat.label}
+                  </span>
+                  <h2 className="text-lg font-bold text-slate-900 mt-3 leading-snug group-hover:text-pw-primary transition-colors">
+                    {p.title}
+                  </h2>
+                  <p className="text-sm text-slate-600 mt-2 line-clamp-2">{p.excerpt}</p>
+                  <div className="flex items-center gap-3 mt-4 text-xs text-slate-400">
+                    {p.publishedAt && <span>{formatDateTR(p.publishedAt)}</span>}
+                    <span>·</span>
+                    <span>{p.readTime} dk okuma</span>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

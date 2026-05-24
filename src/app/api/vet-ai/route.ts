@@ -9,24 +9,67 @@ const schema = z.object({
   petName: z.string().optional(),
 });
 
-const SYSTEM_PROMPT = `Sen PetWhisper uygulamasının VetAI asistanısın. Türkçe yanıt veriyorsun.
+const SYSTEM_PROMPT = `Sen PetWhisper / PawHome uygulamasının VetAI asistanısın. Türkçe yanıt veriyorsun.
 - Empatik, sabırlı ve net konuş.
 - Kesin teşhis koyma; kullanıcıyı uygun durumda veteriner hekime yönlendir.
 - Acil belirtiler (nefes darlığı, bilinç kaybı, ağır kanama, zehirlenme şüphesi, doğum güçlüğü) varsa derhal en yakın 24 saat açık veteriner kliniğine başvurmasını öner.
 - Cevapları kısa tut, gerektiğinde maddeler halinde ver.
 - İlaç doz önerisi vermekten kaçın; bu kararı veterinere bırak.`;
 
+type Msg = { role: "user" | "model"; content: string };
+
+async function callOpenAI(apiKey: string, system: string, messages: Msg[]): Promise<string> {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+      messages: [
+        { role: "system", content: system },
+        ...messages.map((m) => ({
+          role: m.role === "model" ? "assistant" : "user",
+          content: m.content,
+        })),
+      ],
+      temperature: 0.6,
+      max_tokens: 800,
+    }),
+  });
+  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content ?? "Bir yanıt üretilemedi.";
+}
+
+async function callGemini(apiKey: string, system: string, messages: Msg[]): Promise<string> {
+  const model = process.env.GEMINI_MODEL ?? "gemini-1.5-flash-001";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { role: "system", parts: [{ text: system }] },
+      contents: messages.map((m) => ({
+        role: m.role,
+        parts: [{ text: m.content }],
+      })),
+      generationConfig: { temperature: 0.6, maxOutputTokens: 800 },
+    }),
+  });
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  return (
+    data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text).join("\n") ??
+    "Bir yanıt üretilemedi."
+  );
+}
+
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "OPENAI_API_KEY tanımlı değil." },
-      { status: 500 }
-    );
-  }
 
   const body = await req.json();
   const parsed = schema.safeParse(body);
@@ -38,35 +81,33 @@ export async function POST(req: Request) {
     ? `${SYSTEM_PROMPT}\nKullanıcının dostu: ${parsed.data.petName}.`
     : SYSTEM_PROMPT;
 
-  const openaiMessages = [
-    { role: "system", content: systemContent },
-    ...parsed.data.messages.map((m) => ({
-      role: m.role === "model" ? "assistant" : "user",
-      content: m.content,
-    })),
-  ];
+  // Provider seçimi: OPENAI öncelikli, yoksa GEMINI
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
-      messages: openaiMessages,
-      temperature: 0.6,
-      max_tokens: 800,
-    }),
-  });
+  try {
+    let reply: string;
+    let provider: string;
 
-  if (!res.ok) {
-    const text = await res.text();
-    return NextResponse.json({ error: "OpenAI hatası", detail: text }, { status: 502 });
+    if (openaiKey) {
+      reply = await callOpenAI(openaiKey, systemContent, parsed.data.messages);
+      provider = "openai";
+    } else if (geminiKey) {
+      reply = await callGemini(geminiKey, systemContent, parsed.data.messages);
+      provider = "gemini";
+    } else {
+      return NextResponse.json(
+        {
+          error:
+            ".env içinde OPENAI_API_KEY veya GEMINI_API_KEY tanımlı değil.",
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ reply, provider });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "AI hatası", detail: msg }, { status: 502 });
   }
-
-  const data = await res.json();
-  const reply: string =
-    data?.choices?.[0]?.message?.content ?? "Bir yanıt üretilemedi.";
-  return NextResponse.json({ reply });
 }

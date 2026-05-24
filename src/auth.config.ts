@@ -25,6 +25,8 @@ export const authConfig = {
       const requiresAuth =
         path === "/app" ||
         path.startsWith("/app/") ||
+        path === "/admin" ||
+        path.startsWith("/admin/") ||
         (path.startsWith("/api/") &&
           !path.startsWith("/api/auth") &&
           !path.startsWith("/api/register"));
