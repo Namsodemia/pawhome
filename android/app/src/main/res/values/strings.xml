@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PawHome</string>
+    <string name="title_activity_main">PawHome</string>
+    <string name="package_name">com.pawhome.app</string>
+    <string name="custom_url_scheme">com.pawhome.app</string>
+</resources>

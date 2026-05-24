@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  password     String
+  city         String?  @default("İstanbul")
+  notifyEmail  Boolean  @default(true) @map("notify_email")
+  notifyApp    Boolean  @default(true) @map("notify_app")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  pets         Pet[]
+  reminders    Reminder[]
+  forumPosts   ForumPost[]
+
+  @@map("users")
+}
+
+enum PetType {
+  dog
+  cat
+}
+
+model Pet {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  name          String
+  type          PetType
+  breed         String?
+  age           Int?
+  healthScore   Int      @default(100) @map("health_score")
+  energyScore   Int      @default(100) @map("energy_score")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminders     Reminder[]
+
+  @@index([userId])
+  @@map("pets")
+}
+
+enum ReminderType {
+  walk
+  vaccine
+  food
+  vet
+  other
+}
+
+model Reminder {
+  id           Int          @id @default(autoincrement())
+  userId       Int          @map("user_id")
+  petId        Int          @map("pet_id")
+  title        String
+  description  String?      @db.Text
+  dueDate      DateTime     @map("due_date")
+  type         ReminderType @default(other)
+  isCompleted  Boolean      @default(false) @map("is_completed")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet          Pet  @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([petId])
+  @@index([dueDate])
+  @@map("reminders")
+}
+
+enum ForumCategory {
+  beslenme
+  saglik
+  egitim
+  hikaye
+}
+
+model ForumPost {
+  id          Int           @id @default(autoincrement())
+  userId      Int           @map("user_id")
+  category    ForumCategory @default(hikaye)
+  title       String
+  content     String        @db.Text
+  likes       Int           @default(0)
+  comments    Int           @default(0)
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("forum_posts")
+}
+
+enum ClinicStatus {
+  acik       @map("Açık")
+  nobetci    @map("Nöbetçi")
+  kapali     @map("Kapalı")
+}
+
+model Clinic {
+  id           Int          @id @default(autoincrement())
+  name         String
+  address      String?
+  phone        String?
+  latitude     Float
+  longitude    Float
+  status       ClinicStatus @default(acik)
+  image        String?
+  rating       Float        @default(0)
+  ratingCount  Int          @default(0) @map("rating_count")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  @@index([latitude, longitude])
+  @@map("clinics")
+}
