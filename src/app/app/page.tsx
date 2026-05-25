@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { avatarUrl, formatDateTR, reminderStyle } from "@/lib/utils";
 import { AddPetCard, HomeQuickActions } from "@/components/HomeActions";
+import { ReminderItem } from "@/components/ReminderItem";
 
 export default async function HomePage() {
   const session = await auth();
@@ -101,29 +102,18 @@ export default async function HomePage() {
               reminders.map((item) => {
                 const s = reminderStyle(item.type);
                 return (
-                  <div
+                  <ReminderItem
                     key={item.id}
-                    className={`bg-white p-4 rounded-2xl border-l-4 ${
-                      item.type === "vaccine" ? "border-pw-accent" : "border-pw-primary"
-                    } shadow-sm flex items-center justify-between`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`w-10 h-10 rounded-full ${s.bg} ${s.text} flex items-center justify-center text-sm`}
-                      >
-                        <i className={`fa-solid ${s.icon}`}></i>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-800">{item.title}</h4>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {formatDateTR(item.dueDate)} • {item.description ?? ""}
-                        </p>
-                      </div>
-                    </div>
-                    <button className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-green-50 hover:text-green-500 hover:border-green-200 transition">
-                      <i className="fa-solid fa-check"></i>
-                    </button>
-                  </div>
+                    id={item.id}
+                    title={item.title}
+                    type={item.type}
+                    description={item.description ?? ""}
+                    dueLabel={formatDateTR(item.dueDate)}
+                    icon={s.icon}
+                    bgClass={s.bg}
+                    textClass={s.text}
+                    borderClass={item.type === "vaccine" ? "border-pw-accent" : "border-pw-primary"}
+                  />
                 );
               })
             ) : (

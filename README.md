@@ -1,45 +1,56 @@
 # PawHome (Next.js)
 
-Tek codebase, üç hedef:
+Tek codebase, dört hedef:
 
-1. **Web sitesi** (pazarlama) → `/`, `/features`, `/pricing`, `/about`, `/blog`, `/sss`, `/contact`
+1. **Web sitesi** (pazarlama) → `/`, `/features`, `/pricing`, `/about`, `/blog`, `/blog/[slug]`, `/sss`, `/contact`
 2. **Mobil PWA** (giriş gerektirir) → `/app/*`
-3. **iOS + Android app** → Capacitor ile aynı Next.js sunucusunu WebView'da gösterir
+3. **Admin CMS** (sadece admin rolü) → `/admin/*`
+4. **iOS + Android app** → Capacitor ile aynı Next.js sunucusunu WebView'da gösterir
 
-PHP versiyonundan **Next.js 15 + TypeScript + Prisma + NextAuth v5** kurgusuna çevrilmiş hali.
+PHP versiyonundan **Next.js 15 + TypeScript + Prisma + NextAuth v5** kurgusuna çevrilmiş + genişletilmiş.
 
 ## Özellikler
 
 ### Web (Public)
-- Landing page (hero, özellikler, sosyal kanıt, CTA)
-- Özellikler, Fiyatlandırma, Hakkımızda, Blog, SSS, İletişim sayfaları
+- Landing page (hero, telefon mockup, özellikler, testimonial, CTA)
+- Özellikler, Fiyatlandırma, Hakkımızda, SSS, İletişim sayfaları
+- **Blog** — DB'den çekiyor, dinamik `/blog/[slug]` detay sayfaları, ISR (5dk cache), Markdown render
 - Responsive: mobil, tablet, desktop
 
 ### App (Authenticated, `/app/*`)
 - E-posta/şifre ile kayıt + giriş (NextAuth v5 + bcrypt)
 - Evcil hayvan profili, sağlık/enerji skorları
-- Hatırlatıcılar (aşı, mama, yürüyüş, vet randevusu)
-- Forum/topluluk (kategori bazlı paylaşım)
-- VetAI sohbet (OpenAI **gpt-4o-mini**, server-side proxy)
-- Klinik listesi (geolokasyon + Haversine mesafe)
-- Bildirim tercihleri
-- Abonelik sayfası (UI)
+- Hatırlatıcılar (aşı, mama, yürüyüş, vet randevusu) — **tamamlandı butonu çalışıyor**
+- **Forum** — gerçek beğeni (toggle, optimistic) + yorum sistemi (liste + ekle)
+- VetAI sohbet (OpenAI **gpt-4o-mini** veya Google **Gemini 2.5 Flash**, server-side proxy)
+- Klinik bulucu — **gerçek interaktif harita** (react-leaflet + OpenStreetMap), pin'ler, popup, geolokasyon
+- Bildirim tercihleri + **Web Push** (VAPID, service worker)
+
+### Admin CMS (`/admin/*`, role=admin)
+- Dashboard: stat kartları, son aktiviteler
+- Kullanıcı yönetimi (rol değiştir, ban, sil)
+- Evcil hayvanlar (liste, sil)
+- Forum moderasyonu (sabitle, soft/hard delete, restore)
+- Klinikler CRUD (lat/lng, durum, puan)
+- Blog CRUD (markdown editor, draft/published, otomatik slug)
+- İletişim mesajları (status workflow: yeni → okundu → yanıtlandı)
 
 ### Mobile (Capacitor)
 - iOS + Android native shell
-- Aynı Next.js backend'i kullanır
+- Aynı Next.js backend'i WebView üzerinden kullanır
 - Detay: [MOBILE.md](MOBILE.md)
 
 ## Stack
 
 - Next.js 15 (App Router, RSC, Server Actions)
 - TypeScript
-- Tailwind CSS 3
+- Tailwind CSS 3 + Typography plugin
 - Prisma 5 + MySQL
 - NextAuth v5 (Auth.js) — JWT session
-- OpenAI API (gpt-4o-mini)
-- Zod (validation)
-- bcryptjs
+- OpenAI gpt-4o-mini **veya** Google Gemini 2.5 Flash
+- react-leaflet + Leaflet (OpenStreetMap)
+- web-push (VAPID Web Push)
+- Zod, bcryptjs
 - Capacitor 8 (iOS + Android)
 
 ## Kurulum
@@ -50,17 +61,19 @@ npm install
 
 # 2. .env'i oluştur (cp .env.example .env)
 # Aşağıdaki değerleri doldur:
-#   DATABASE_URL  — MySQL connection string
-#   AUTH_SECRET   — openssl rand -base64 32 ile üret
-#   OPENAI_API_KEY — VetAI için
-#   OPENAI_MODEL   — default: gpt-4o-mini
+#   DATABASE_URL    — MySQL connection string
+#   AUTH_SECRET     — openssl rand -base64 32 ile üret
+#   OPENAI_API_KEY  — VetAI için (opsiyonel)
+#   GEMINI_API_KEY  — alternatif AI provider (opsiyonel)
+#   NEXT_PUBLIC_VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY — push için
 
 # 3. Veritabanı şemasını oluştur
-npx prisma migrate dev --name init
+npx prisma db push
 
-# 4. (Opsiyonel) Demo veriyi yükle
+# 4. Demo veriyi yükle
 npm run db:seed
-# Demo giriş: demo@pawhome.app / demo1234
+# Demo giriş: demo@pawhome.app  / demo1234
+# Admin giriş: admin@pawhome.app / admin1234
 
 # 5. Çalıştır
 npm run dev
@@ -73,22 +86,27 @@ Tarayıcı → http://localhost:3000
 | URL | Erişim | Ne |
 |---|---|---|
 | `/` | Public | Landing page |
-| `/features`, `/pricing`, `/about`, `/blog`, `/sss`, `/contact` | Public | Pazarlama sayfaları |
+| `/features`, `/pricing`, `/about`, `/sss`, `/contact` | Public | Pazarlama sayfaları |
+| `/blog` | Public | Blog listesi (DB'den) |
+| `/blog/[slug]` | Public | Blog detay (Markdown render, ISR) |
 | `/login`, `/register` | Public | Auth (giriş yapılmışsa /app'e redirect) |
-| `/logout` | Public | Oturumu sonlandır, /login'e redirect |
-| `/app` | Auth | Ana dashboard (eski index.php) |
-| `/app/profil` | Auth | Profil sayfası |
-| `/app/hesap` | Auth | Hesap ayarları |
-| `/app/planlar` | Auth | Tüm hatırlatıcılar |
-| `/app/forum` | Auth | Topluluk |
-| `/app/klinikler` | Auth | Klinik bulucu |
-| `/app/vet-ai` | Auth | VetAI sohbet |
-| `/app/chat` | Auth | → /app/vet-ai (redirect) |
-| `/app/abonelik`, `/app/bildirimler`, `/app/yardim`, `/app/sozlesmeler` | Auth | Yardımcı sayfalar |
+| `/logout` | Public | Oturumu sonlandır |
+| `/app` | Auth | Ana dashboard |
+| `/app/profil`, `/app/hesap`, `/app/planlar` | Auth | Profil ve hatırlatıcılar |
+| `/app/forum` | Auth | Topluluk (beğeni + yorum) |
+| `/app/klinikler` | Auth | Gerçek harita + klinik listesi |
+| `/app/vet-ai` | Auth | AI sohbet |
+| `/app/bildirimler` | Auth | Push bildirim aboneliği |
+| `/app/abonelik`, `/app/yardim`, `/app/sozlesmeler` | Auth | Yardımcı sayfalar |
+| `/admin` | Admin | Dashboard |
+| `/admin/users`, `/admin/pets`, `/admin/forum` | Admin | Moderasyon |
+| `/admin/clinics`, `/admin/clinics/new`, `/admin/clinics/[id]` | Admin | Klinik CRUD |
+| `/admin/blog`, `/admin/blog/new`, `/admin/blog/[id]` | Admin | Blog CRUD |
+| `/admin/contacts` | Admin | İletişim mesajları |
 | `/api/auth/[...nextauth]` | Public | NextAuth handlers |
-| `/api/pets`, `/api/reminders`, `/api/posts`, `/api/notifications`, `/api/vet-ai` | Auth | App API endpoints |
-
-Korumalı route'lara giriş yapmadan erişilirse otomatik `/login`'e yönlendirilir (`middleware.ts`).
+| `/api/pets`, `/api/reminders`, `/api/posts`, `/api/notifications`, `/api/vet-ai` | Auth | App API |
+| `/api/posts/[id]/like`, `/api/posts/[id]/comments` | Auth | Forum etkileşim |
+| `/api/push/subscribe`, `/api/push/test` | Auth | Push subscription |
 
 ## Dizin Yapısı
 
@@ -98,56 +116,57 @@ src/
 │   ├── (marketing)/         # public website (no auth)
 │   │   ├── layout.tsx       # nav + footer
 │   │   ├── page.tsx         # landing
-│   │   ├── features/
-│   │   ├── pricing/
-│   │   ├── about/
-│   │   ├── blog/
-│   │   ├── sss/
-│   │   └── contact/
+│   │   ├── features/, pricing/, about/, sss/, contact/
+│   │   └── blog/
+│   │       ├── page.tsx     # list from DB
+│   │       └── [slug]/page.tsx  # detail with markdown
 │   ├── (auth)/              # login, register, logout
 │   ├── app/                 # authenticated app (URL: /app/*)
-│   │   ├── layout.tsx       # auth check + bottom nav
-│   │   ├── page.tsx         # dashboard (/app)
-│   │   ├── profil/, hesap/, planlar/, forum/, klinikler/, vet-ai/, chat/, ...
+│   │   ├── layout.tsx, page.tsx
+│   │   ├── profil/, hesap/, planlar/, forum/, klinikler/, vet-ai/, chat/
+│   │   └── ...
+│   ├── admin/               # admin CMS (URL: /admin/*)
+│   │   ├── layout.tsx       # role guard + sidebar
+│   │   ├── page.tsx         # dashboard
+│   │   ├── users/, pets/, forum/, clinics/, blog/, contacts/
 │   ├── api/
 │   │   ├── auth/[...nextauth]/
 │   │   ├── pets/, reminders/, posts/, notifications/, vet-ai/
-│   ├── layout.tsx           # root html
-│   └── globals.css
-├── auth.ts                  # NextAuth full config (Prisma+bcrypt)
-├── auth.config.ts           # edge-safe minimal config (middleware)
+│   │   ├── posts/[id]/like/, posts/[id]/comments/
+│   │   └── push/subscribe/, push/test/
+│   ├── layout.tsx, loading.tsx, globals.css
+├── auth.ts, auth.config.ts  # NextAuth
 ├── middleware.ts            # auth-aware redirect
-├── components/              # shared
-│   ├── MarketingNav.tsx, MarketingFooter.tsx
-│   ├── BottomNav.tsx
-│   ├── AddPetModal.tsx, AddReminderModal.tsx, AddPostModal.tsx
-│   └── HomeActions.tsx, LocationButton.tsx
+├── components/              # shared (Logo, Preloader, BottomNav, modals, ClinicMap, ForumPostCard, AdminSidebar, PushSubscribe...)
 ├── lib/
 │   ├── prisma.ts            # singleton client
-│   └── utils.ts             # formatDateTR, avatar, Haversine, sessionUserId
-├── types/
-│   └── next-auth.d.ts       # session type augmentation
+│   ├── utils.ts             # formatDateTR, avatar, Haversine, sessionUserId
+│   ├── admin.ts             # requireAdmin()
+│   └── push.ts              # sendPushToUser, sendPushToAll
+├── types/next-auth.d.ts
 prisma/
-├── schema.prisma            # User, Pet, Reminder, ForumPost, Clinic
-└── seed.ts                  # demo data
-capacitor.config.ts          # iOS+Android config
+├── schema.prisma            # User, Pet, Reminder, ForumPost, ForumComment, ForumLike, Clinic, BlogPost, ContactMessage, PushSubscription
+└── seed.ts
+public/
+├── logo-icon.png, logo-icon-white.png, logo.png  # paw logo variants
+├── sw.js                    # Web Push service worker
+capacitor.config.ts
 ```
 
-## Güvenlik Notları (PHP'den taşırken düzeltildi)
+## Güvenlik Notları
 
-- **OpenAI API key:** Sadece server-side `.env` içinde, asla client'a gönderilmez. `/api/vet-ai` proxy yapar.
-- **DB credentials:** `.env` içinde, kod içinde yok.
+- **API key'ler:** OpenAI / Gemini sadece server-side `.env`'de, client'a gönderilmez. `/api/vet-ai` proxy.
+- **DB credentials:** `.env` içinde.
 - **Şifreler:** `bcryptjs` ile hashleniyor.
-- **Auth:** Middleware her korumalı route'u kontrol eder.
+- **Auth:** Middleware `/app/*`, `/admin/*` ve API'lerin auth gerektirenlerini kontrol eder.
+- **Admin:** `requireAdmin()` helper her admin sayfasında ve action'da kontrol eder.
 
-## Eksik / Mock Kalanlar
+## Atlanan Özellikler
 
-- Forum `likes` ve `comments` sayaçları varsayılan 0 — beğeni/yorum yazma sistemi yok.
-- Abonelik / Stripe entegrasyonu yok (UI placeholder).
-- Blog sayfaları statik veri — gerçek CMS bağlanmadı.
-- İletişim formu sadece console.log ediyor — gerçek e-posta gönderimi (Resend/Postmark) bağlanmadı.
-- Hatırlatıcı "tamamlandı" butonu — `PATCH /api/reminders` endpoint'i hazır ama UI bağlantısı yok.
-- Push bildirimleri yok (eklemek için web push veya FCM gerekir).
+Kullanıcı isteği üzerine atlanan iki özellik:
+
+- **Stripe / ödeme entegrasyonu** — `/app/abonelik` UI placeholder
+- **İletişim formu e-posta gönderimi** — Mesajlar DB'ye kaydediliyor, admin `/admin/contacts`'tan görüyor, ama otomatik e-posta gönderimi (Resend/Postmark) entegre değil. `mailto:` linki ile manuel yanıtlanır.
 
 ## Yararlı Komutlar
 
@@ -156,11 +175,11 @@ npm run dev              # geliştirme sunucusu
 npm run build            # production build
 npm run start            # prod sunucusu
 npm run prisma:studio    # DB'yi UI ile gör
-npm run prisma:migrate   # yeni migration
+npx prisma db push       # şema sync
 npm run db:seed          # demo veri
 
 # Mobile
-npx cap sync             # web değişikliklerini iOS+Android'e yansıt
+npx cap sync             # web → iOS+Android
 npx cap open ios         # Xcode'da aç
 npx cap open android     # Android Studio'da aç
 ```
