@@ -225,7 +225,7 @@ function KazaPage() {
         ) : list.length === 0 ? (
           <Empty icon={Search} title="Eşleşen kayıt yok" text="Filtreyi veya arama ifadesini değiştirin." />
         ) : (
-          <div className="grid gap-3 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
             {list.map((o) => (
               <OlayRow key={o.id} o={o} onOpen={() => setEditing(o)} onPrint={() => printOlay(o, firma)} />
             ))}
@@ -441,7 +441,7 @@ function OlayForm({ initial, firma, onClose }: { initial: Partial<Olay>; firma: 
             <Input type="time" value={f.saat} onChange={(e) => set("saat")(e.target.value)} placeholder="14:30" />
           </Field>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="İşyeri">
             <Input value={f.isyeri} onChange={(e) => set("isyeri")(e.target.value)} list="olay-isyerleri" autoComplete="off" />
             <datalist id="olay-isyerleri">
@@ -471,7 +471,7 @@ function OlayForm({ initial, firma, onClose }: { initial: Partial<Olay>; firma: 
         <Field label="Yaralanma / hasar">
           <Input value={f.yaralanma} onChange={(e) => set("yaralanma")(e.target.value)} />
         </Field>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Kök neden">
             <Textarea value={f.kok_neden} onChange={(e) => set("kok_neden")(e.target.value)} placeholder="5 Neden analizi sonucu" className="min-h-[88px]" />
           </Field>
@@ -481,7 +481,7 @@ function OlayForm({ initial, firma, onClose }: { initial: Partial<Olay>; firma: 
         </div>
         {f.tur === "kaza" ? (
           <div className="rounded-2xl border border-line bg-paper/60 p-3.5">
-            <div className="grid gap-3 sm:grid-cols-[160px_1fr] sm:items-end">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[160px_1fr] sm:items-end">
               <Field label="Kayıp iş günü">
                 <Input type="number" inputMode="numeric" min={0} value={f.kayip_gun} onChange={(e) => set("kayip_gun")(e.target.value)} mono />
               </Field>

@@ -138,7 +138,7 @@ export function RowEditor({
       </div>
 
       <div className={cx("mt-4 grid gap-4", ai && "pointer-events-none opacity-60")}>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field label="Bölüm">
             <Input value={f.bolum} onChange={(e) => set("bolum", e.target.value)} placeholder="Örn. Mutfak" list="risk-bolum-list" />
             <datalist id="risk-bolum-list">
@@ -162,7 +162,7 @@ export function RowEditor({
         <Field label="Risk (olası sonuç) *" error={tried && !f.risk.trim() ? "Risk alanı zorunludur." : null}>
           <Input value={f.risk} onChange={(e) => set("risk", e.target.value)} placeholder="Örn. Yanık ve haşlanma" />
         </Field>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Scale label="Olasılık" value={f.o} labels={OLASILIK_LABELS} onChange={(v) => set("o", v)} />
           <Scale label="Şiddet" value={f.s} labels={SIDDET_LABELS} onChange={(v) => set("s", v)} />
         </div>

@@ -121,7 +121,7 @@ export default function Landing() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(1200px_500px_at_80%_-10%,#E4F1F8,transparent),radial-gradient(900px_420px_at_0%_10%,#E6F5EC,transparent)]" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-14 md:px-6 lg:grid-cols-2 lg:pb-24 lg:pt-20">
+        <div className="relative mx-auto grid grid-cols-1 max-w-6xl items-center gap-12 px-4 pb-16 pt-14 md:px-6 lg:grid-cols-2 lg:pb-24 lg:pt-20">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-brand-blue shadow-card">
               <WandSparkles size={14} /> Yapay zekâ destekli İSG süper uygulaması
@@ -218,7 +218,7 @@ export default function Landing() {
         <div className="mx-auto max-w-6xl px-4 md:px-6">
           <div className="section-label">Modüller</div>
           <h2 className="mt-3 max-w-2xl text-[30px] font-extrabold tracking-tight text-navy md:text-[38px]">Bir OSGB&apos;nin ve İSG uzmanının ihtiyacı olan her şey</h2>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => {
               const Icon = f.icon;
               return (
@@ -237,7 +237,7 @@ export default function Landing() {
 
       {/* Risk analizi */}
       <section id="risk" className="py-20">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 md:px-6 lg:grid-cols-2">
+        <div className="mx-auto grid grid-cols-1 max-w-6xl items-center gap-12 px-4 md:px-6 lg:grid-cols-2">
           <div>
             <div className="section-label">Risk değerlendirme</div>
             <h2 className="mt-3 text-[30px] font-extrabold tracking-tight text-navy md:text-[38px]">Mevzuata uygun, işletmeye özel 5x5 risk analizi</h2>
@@ -265,18 +265,18 @@ export default function Landing() {
           <div className="rounded-xl3 border border-line/70 bg-white p-6 shadow-card">
             <div className="mb-3 flex items-center justify-between text-[12px] font-bold uppercase tracking-wider text-muted">
               <span>5x5 L tipi matris</span>
-              <span>Olasılık × Şiddet</span>
+              <span>Satır: olasılık · Sütun: şiddet</span>
             </div>
             <div className="grid grid-cols-[auto_repeat(5,1fr)] gap-1.5">
               <span />
               {[1, 2, 3, 4, 5].map((s) => (
                 <span key={s} className="num text-center text-[11px] font-bold text-muted">
-                  Ş{s}
+                  {s}
                 </span>
               ))}
               {[5, 4, 3, 2, 1].map((o) => (
                 <div key={o} className="contents">
-                  <span className="num flex items-center pr-1 text-[11px] font-bold text-muted">O{o}</span>
+                  <span className="num flex items-center pr-1 text-[11px] font-bold text-muted">{o}</span>
                   {[1, 2, 3, 4, 5].map((s) => (
                     <span
                       key={s}
@@ -307,7 +307,7 @@ export default function Landing() {
 
       {/* Veri güvenliği */}
       <section id="guvenlik" className="bg-navy py-20 text-white">
-        <div className="mx-auto grid max-w-6xl gap-6 px-4 md:grid-cols-3 md:px-6">
+        <div className="mx-auto grid grid-cols-1 max-w-6xl gap-6 px-4 md:grid-cols-3 md:px-6">
           {[
             [Database, "Verileriniz sizde", "Kayıtlar sunucuya değil, tarayıcınızın kendi veritabanına (IndexedDB) yazılır. Ayarlar'dan JSON yedek alıp geri yükleyebilirsiniz."],
             [Sparkles, "Claude ile çalışır", "Yapay zekâ özellikleri Anthropic Claude ile çalışır. Kendi API anahtarınızı girin ya da sunucuda tanımlı anahtarı kullanın."],

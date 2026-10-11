@@ -166,7 +166,7 @@ function MusteriInner() {
       />
 
       <Hero>
-        <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_auto] md:items-end">
           <div>
             <HeroKicker>MÜŞTERİ TAKİP · {tot.n} KİŞİ</HeroKicker>
             <div className="mt-2 flex items-end gap-2.5">
@@ -188,7 +188,7 @@ function MusteriInner() {
         </div>
       </Hero>
 
-      <div className="mt-5 grid gap-2.5 md:grid-cols-[1fr_auto] md:items-center">
+      <div className="mt-5 grid grid-cols-1 gap-2.5 md:grid-cols-[1fr_auto] md:items-center">
         <div className="relative">
           <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
           <input

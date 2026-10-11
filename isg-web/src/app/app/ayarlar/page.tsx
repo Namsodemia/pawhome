@@ -95,7 +95,7 @@ export default function AyarlarPage() {
   return (
     <div>
       <PageHeader title="Ayarlar" subtitle="Yapay zekâ, firma, kasalar, kategoriler ve yedekleme" />
-      <div className="grid items-start gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         <div className="space-y-5">
           <AiCard />
           <FirmaCard key={firma} />
@@ -201,7 +201,7 @@ function AiCard() {
       const model = currentModel();
       const res = await c.messages.create({
         model,
-        max_tokens: 64,
+        max_tokens: 1024,
         messages: [{ role: "user", content: "Sadece 'Tamam' yaz." }],
         output_config: { effort: "low" },
       });
@@ -297,7 +297,7 @@ function AiCard() {
       <div className="mt-5 h-px bg-line" />
 
       <FieldGroup label="Model" className="mt-4">
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {MODELS.map((m) => {
             const on = settings.model === m.id;
             return (
@@ -617,7 +617,7 @@ function DataCard() {
 
   return (
     <SettingsCard icon={Database} title="Veri ve Yedek" sub="Verileriniz yalnızca bu tarayıcıda tutulur." className="lg:col-span-2">
-      <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
         <div>
           <p className="text-[13.5px] leading-relaxed text-text">
             Tüm kayıtlar bu tarayıcının yerel veritabanında (IndexedDB) saklanır ve hiçbir sunucuya gönderilmez. Yalnızca yapay zekâ özelliklerini kullandığınızda
@@ -632,7 +632,7 @@ function DataCard() {
             ))}
           </div>
         </div>
-        <div className="grid gap-2.5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <ActionTile icon={Download} title="Yedeği indir (JSON)" text="Tüm verilerin tek dosyalık kopyası." onClick={backup} />
           <ActionTile icon={Upload} title="Yedekten geri yükle" text="JSON yedeğini seçin; mevcut verilerin yerini alır." onClick={() => fileRef.current?.click()} busy={busy} />
           <ActionTile icon={FlaskConical} title="Örnek veri yükle" text="Modülleri denemek için örnek kayıtlar ekler." onClick={demo} />

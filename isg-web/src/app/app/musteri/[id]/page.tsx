@@ -113,7 +113,7 @@ function KursiyerDetail({ kid }: { kid: number }) {
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
         <div className="min-w-0 space-y-5">
           <Card>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
@@ -127,7 +127,7 @@ function KursiyerDetail({ kid }: { kid: number }) {
               </MiniStat>
             </div>
 
-            <dl className="mt-5 grid gap-x-6 gap-y-2.5 text-[13.5px] sm:grid-cols-2">
+            <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-2.5 text-[13.5px] sm:grid-cols-2">
               <Line label="Telefon" mono>
                 {k.phone || "-"}
               </Line>

@@ -80,7 +80,7 @@ export function DashboardCharts({ transactions, riskRows }: { transactions: Trx[
   const hasMoney = months.some((m) => m.gelir || m.gider);
 
   return (
-    <div className="mt-2 grid gap-5 lg:grid-cols-12">
+    <div className="mt-2 grid grid-cols-1 gap-5 lg:grid-cols-12">
       <Section
         label="Son 6 ay · gelir / gider"
         className="lg:col-span-8"

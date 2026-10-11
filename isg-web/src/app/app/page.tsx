@@ -25,11 +25,17 @@ import {
 } from "lucide-react";
 import { Card, Hero, HeroKicker, Section, Stat, Button } from "@/components/ui";
 import { toast } from "@/components/feedback";
-import { DashboardCharts } from "./DashboardCharts";
+import dynamic from "next/dynamic";
 import { useStore, kasaBalances, monthSummary, kursiyerTotals, olayStats } from "@/lib/store";
 import { aiMode, subscribeAiConfig, type AiMode } from "@/lib/ai/client";
 import { useQuestionBank } from "@/lib/sinav";
 import { greeting, longDateTR, money, moneyShort, thisMonth, cx } from "@/lib/format";
+
+// Grafik kütüphanesi ilk yüklemeyi büyütmesin diye ayrı parça olarak yüklenir
+const DashboardCharts = dynamic(() => import("./DashboardCharts").then((m) => m.DashboardCharts), {
+  ssr: false,
+  loading: () => <div className="skeleton mt-7 h-[300px] w-full" />,
+});
 
 export default function Dashboard() {
   const transactions = useStore((s) => s.transactions);
@@ -115,7 +121,7 @@ export default function Dashboard() {
         <div className="text-[14px] capitalize text-muted">{hello.d}</div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-8">
           <Hero>
             <HeroKicker>Net kasa</HeroKicker>

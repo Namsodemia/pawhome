@@ -222,7 +222,7 @@ function KasaInner() {
       </Hero>
 
       {/* Filtreler */}
-      <div className="mt-5 grid gap-2.5 md:grid-cols-[1fr_auto_auto] md:items-center">
+      <div className="mt-5 grid grid-cols-1 gap-2.5 md:grid-cols-[1fr_auto_auto] md:items-center">
         <div className="relative">
           <Search size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
           <input
@@ -270,7 +270,7 @@ function KasaInner() {
         </div>
       </div>
 
-      <div className="mt-2 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="mt-2 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0">
           {/* Mobil: süzülmüş toplamlar şeridi */}
           <TotalsStrip t={ftot} className="mt-4 lg:hidden" />

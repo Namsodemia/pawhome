@@ -100,7 +100,7 @@ export default function HesapPage() {
     <div>
       <PageHeader title="İSG Hesaplayıcı" subtitle="Yükümlülük süreleri, kaza istatistikleri ve hızlı 5×5 risk skoru" />
 
-      <div className="grid items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">
         {/* 1) İşyeri Yükümlülük Hesabı */}
         <Card className="lg:row-span-2 xl:row-span-1">
           <CardTitle icon={Building2} color="#107398" title="İşyeri Yükümlülük Hesabı" sub="Tehlike sınıfı ve çalışan sayısına göre asgari yükümlülükler." />

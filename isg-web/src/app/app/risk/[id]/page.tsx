@@ -232,7 +232,7 @@ export default function RiskDetailPage() {
             {a.hazard_auto ? <HeroChip>Sınıf: otomatik</HeroChip> : null}
           </div>
           {a.activity_desc ? <p className="mt-3.5 text-[14px] leading-relaxed text-white/90">{a.activity_desc}</p> : null}
-          <div className="mt-4 grid gap-2.5 border-t border-white/15 pt-3.5 text-[12.5px] sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-2.5 border-t border-white/15 pt-3.5 text-[12.5px] sm:grid-cols-3">
             <Info2 icon={Users} label="Çalışanlar" value={a.personnel || "—"} />
             <Info2 icon={UserRound} label="İşveren / Yetkili" value={a.employer_label || "—"} />
             <Info2

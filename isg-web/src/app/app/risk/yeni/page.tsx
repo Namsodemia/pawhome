@@ -85,7 +85,7 @@ export default function NewRiskPage() {
     <div>
       <PageHeader title="İşletme Bilgileri" subtitle="İşletmeyi ne kadar ayrıntılı anlatırsanız maddeler o kadar isabetli olur." back="/app/risk" />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <form onSubmit={save} noValidate>
           {noAi ? (
             <div className="mb-4 flex items-start gap-3 rounded-xl2 border border-[#F3DFA8] bg-soft-warn p-4">
@@ -110,7 +110,7 @@ export default function NewRiskPage() {
               <Field label="İşyeri unvanı" error={req(title)}>
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Örn. Demirel Otomotiv San. Tic. Ltd. Şti." autoFocus />
               </Field>
-              <div className="grid gap-4 md:grid-cols-[200px_minmax(0,1fr)]">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-[200px_minmax(0,1fr)]">
                 <Field label="NACE kodu">
                   <Input value={nace} onChange={(e) => setNace(e.target.value)} placeholder="Örn. 45.20.01" mono />
                 </Field>

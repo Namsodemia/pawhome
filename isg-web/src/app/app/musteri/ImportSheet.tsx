@@ -453,7 +453,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
             </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FieldGroup label="Varsayılan program" hint="Satırda program yoksa bu kullanılır.">
               <select value={defGroup} onChange={(e) => setDefGroup(e.target.value)} className="field cursor-pointer !py-2.5 text-[14px]">
                 <option value="">(Programsız bırak)</option>
@@ -481,7 +481,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
               {showMap ? "Sütun eşleştirmeyi gizle" : "Sütun eşleştirmeyi göster / düzelt"}
             </button>
             {showMap ? (
-              <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {FIELDS.map((f) => (
                   <label key={f.key} className="flex items-center gap-2">
                     <span className="w-[130px] shrink-0 text-[12.5px] font-bold text-navy">{f.label}</span>

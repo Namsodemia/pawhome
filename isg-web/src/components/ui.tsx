@@ -66,7 +66,7 @@ export function Card({
   padded?: boolean;
 }) {
   const cls = cx(
-    "block rounded-xl2 border border-line/70 bg-white shadow-card",
+    "block min-w-0 rounded-xl2 border border-line/70 bg-white shadow-card",
     padded && "p-4 md:p-5",
     (onClick || href) && "cursor-pointer transition hover:-translate-y-0.5 hover:shadow-bar",
     className,

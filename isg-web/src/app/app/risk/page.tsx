@@ -109,7 +109,7 @@ export default function RiskListPage() {
         ) : shown.length === 0 ? (
           <Empty icon={Search} title="Sonuç yok" text="Aramanızla eşleşen analiz bulunamadı." />
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {shown.map((a) => (
               <AnalysisCard key={a.id} a={a} st={stats.get(a.id) ?? { rows: 0, max: 0 }} job={jobs[a.id]} />
             ))}

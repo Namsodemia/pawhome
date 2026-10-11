@@ -132,7 +132,7 @@ export function KursiyerForm({ id, onClose, onSaved }: { id?: number | null; onC
         </div>
       }
     >
-      <form id="kursiyer-form" onSubmit={save} noValidate className="grid gap-4 md:grid-cols-2">
+      <form id="kursiyer-form" onSubmit={save} noValidate className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <FormCard icon={UserRound} title="Kişi ve program">
           <Field label="Ad soyad *" error={errors.full_name}>
             <Input value={f.full_name} onChange={(e) => set("full_name")(e.target.value)} autoFocus={!existing} autoCapitalize="words" autoComplete="off" />
