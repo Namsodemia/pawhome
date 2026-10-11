@@ -149,7 +149,7 @@ function toIsoDate(s: string): string {
   return "";
 }
 
-const phoneKey = (s: string) => s.replace(/\D/g, "").slice(-10);
+const phoneKey = (s: string) => (s || "").replace(/\D/g, "").slice(-10);
 const SKIP_NAMES = new Set(["toplam", "genel toplam", "total", "ara toplam"]);
 
 // ---------------------------------------------------------------- satır adayları

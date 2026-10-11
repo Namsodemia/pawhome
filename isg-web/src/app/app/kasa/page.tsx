@@ -193,11 +193,9 @@ function KasaInner() {
         title="Kasa / Cari"
         subtitle="Gelir, gider ve kasa bakiyeleri"
         actions={
-          <>
-            <Button kind="ghost" small icon={FileSpreadsheet} onClick={exportExcel} loading={exporting}>
-              Excel
-            </Button>
-          </>
+          <Button kind="ghost" small icon={FileSpreadsheet} onClick={exportExcel} loading={exporting}>
+            Excel
+          </Button>
         }
       />
 
@@ -459,7 +457,7 @@ function TotalsStrip({ t, className }: { t: { gelir: number; gider: number; net:
       ).map(([label, v, tone]) => (
         <div key={label} className="rounded-2xl border border-line/70 bg-white px-3 py-2.5 shadow-card">
           <div className="text-[10.5px] font-bold uppercase tracking-wider text-muted">{label}</div>
-          <div className={cx("num mt-0.5 truncate text-[13.5px] font-bold", tone)}>{moneyShort(v)}</div>
+          <div className={cx("num mt-0.5 truncate text-[12.5px] font-bold sm:text-[13.5px]", tone)}>{moneyShort(v)}</div>
         </div>
       ))}
     </div>

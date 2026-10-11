@@ -1,0 +1,412 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  ArrowUp,
+  BookOpen,
+  ChevronRight,
+  Copy,
+  KeyRound,
+  ReceiptText,
+  ShieldCheck,
+  Sparkles,
+  Square,
+  Trash2,
+  UserPlus,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+import type { ChatMsg } from "@/lib/types";
+import { useStore } from "@/lib/store";
+import { aiMode, MODELS, subscribeAiConfig, type AiMode } from "@/lib/ai/client";
+import { cx, fmtTime } from "@/lib/format";
+import { Card, PageHeader } from "@/components/ui";
+import { confirmDialog, toast } from "@/components/feedback";
+import { Markdown } from "./Markdown";
+import { ActionCard } from "./ActionCard";
+import { decide, resetSession, sendMessage, stopStreaming, useAsistan } from "./session";
+
+const CHIPS = [
+  "Bu ay kasa durumu nasıl?",
+  "Borçlu kursiyerleri listele",
+  "Program bazında özet ver",
+  "6331 sayılı kanunda işverenin yükümlülükleri neler?",
+  "Risk değerlendirmesi ne sıklıkla yenilenir?",
+];
+
+const EXAMPLES = ["Yasin kasasına 1.500 TL kırtasiye gideri gir", "Ayşe Yılmaz'dan 2.000 TL nakit tahsilat al"];
+
+const CAPABILITIES: { icon: LucideIcon; color: string; title: string; text: string }[] = [
+  { icon: Wallet, color: "#107398", title: "Kasa / Cari", text: "Bakiyeler, aylık gelir-gider; tek veya toplu gelir/gider kaydı." },
+  { icon: ReceiptText, color: "#0B6F7B", title: "Tahsilat", text: "Kursiyerden tek veya toplu tahsilat; kalan borç düşer, kasaya yansır." },
+  { icon: UserPlus, color: "#5CBD7D", title: "Kursiyer kaydı", text: "Tek veya liste hâlinde kursiyer ekler; aynı TC + program atlanır." },
+  { icon: ShieldCheck, color: "#F4772E", title: "Risk ve olaylar", text: "Risk analizleri, kaza / ramak kala ve denetim özetleri." },
+  { icon: BookOpen, color: "#1E3145", title: "Mevzuat", text: "6331, RD Yönetmeliği, 5x5 matris ve İSG yükümlülükleri." },
+];
+
+const EFFORT_LABEL: Record<string, string> = { low: "düşük", medium: "orta", high: "yüksek" };
+
+export default function AsistanPage() {
+  const chat = useStore((s) => s.chat);
+  const clearChat = useStore((s) => s.clearChat);
+  const model = useStore((s) => s.settings.model);
+  const effort = useStore((s) => s.settings.effort);
+  const busy = useAsistan((s) => s.busy);
+  const streamText = useAsistan((s) => s.streamText);
+  const pending = useAsistan((s) => s.pending);
+
+  const [mode, setMode] = useState<AiMode | "loading">("loading");
+  const [text, setText] = useState("");
+  const [limit, setLimit] = useState(40);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    let alive = true;
+    const upd = () => {
+      void aiMode().then((m) => {
+        if (alive) setMode(m);
+      });
+    };
+    upd();
+    const unsub = subscribeAiConfig(upd);
+    return () => {
+      alive = false;
+      unsub();
+    };
+  }, []);
+
+  // Yeni mesaj / onay kartı / akış geldiğinde en alta kaydır
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end", behavior: mounted.current ? "smooth" : "auto" });
+    mounted.current = true;
+  }, [chat.length, pending, busy]);
+  useEffect(() => {
+    if (streamText) endRef.current?.scrollIntoView({ block: "end" });
+  }, [streamText]);
+
+  const visible = chat.slice(-limit);
+  const hidden = chat.length - visible.length;
+  const modelLabel = MODELS.find((m) => m.id === model)?.label ?? model;
+
+  function autoGrow() {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
+  }
+
+  async function send(q?: string) {
+    const t = (q ?? text).trim();
+    if (!t || busy) return;
+    if (mode === "none") {
+      toast("Asistan için Ayarlar'dan API anahtarı girin.", "error");
+      return;
+    }
+    setText("");
+    requestAnimationFrame(autoGrow);
+    await sendMessage(t);
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      void send();
+    }
+  }
+
+  async function clear() {
+    if (!chat.length && !pending) return;
+    const ok = await confirmDialog({ title: "Sohbeti temizle", text: "Tüm mesajlar silinecek.", okLabel: "Temizle", danger: true });
+    if (!ok) return;
+    resetSession();
+    clearChat();
+    setLimit(40);
+  }
+
+  return (
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_288px] lg:gap-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-14rem)] w-full min-w-0 max-w-3xl flex-col">
+        <PageHeader title="Asistan" subtitle="Canlı verinize dayanarak yanıtlar; kayıtları onayınızla işler." />
+
+        {mode === "none" ? (
+          <Link
+            href="/app/ayarlar"
+            className="mb-4 flex items-center gap-3 rounded-2xl border border-[#F3DFA9] bg-soft-warn px-4 py-3 text-[14px] font-bold text-warn transition hover:brightness-[.98]"
+          >
+            <KeyRound size={18} className="shrink-0" />
+            <span className="flex-1">Asistan için Ayarlar&apos;dan API anahtarı girin.</span>
+            <ChevronRight size={18} className="shrink-0" />
+          </Link>
+        ) : null}
+
+        <div className="flex-1 space-y-3 pb-4">
+          {hidden > 0 ? (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setLimit((l) => l + 40)}
+                className="rounded-full border border-line bg-white px-3.5 py-1.5 text-[12.5px] font-bold text-muted hover:text-navy"
+              >
+                Daha eski mesajları göster ({hidden})
+              </button>
+            </div>
+          ) : null}
+
+          {chat.length === 0 && !busy ? <Welcome onPick={(c) => void send(c)} disabled={busy} /> : null}
+
+          {visible.map((m) => (
+            <Bubble key={m.id} m={m} />
+          ))}
+
+          {streamText ? (
+            <BotRow>
+              <div className="relative">
+                <Markdown text={streamText} />
+                <span className="ml-0.5 inline-block h-4 w-[3px] translate-y-0.5 animate-pulse rounded-full bg-brand-blue align-middle" />
+              </div>
+            </BotRow>
+          ) : busy && !pending ? (
+            <BotRow>
+              <span className="flex items-center gap-2 py-0.5 text-[13.5px] text-muted">
+                <span className="flex gap-1">
+                  {[0, 150, 300].map((d) => (
+                    <span key={d} className="h-2 w-2 animate-bounce rounded-full bg-brand-blue/70" style={{ animationDelay: `${d}ms` }} />
+                  ))}
+                </span>
+                Asistan yazıyor…
+              </span>
+            </BotRow>
+          ) : null}
+
+          {pending ? (
+            <div className="space-y-3">
+              {pending.tools.map((t) => (
+                <ActionCard key={t.id} tool={t} decision={pending.decisions[t.id]} disabled={busy} onDecide={(d) => decide(t.id, d)} />
+              ))}
+            </div>
+          ) : null}
+
+          <div ref={endRef} className="scroll-mb-[190px] lg:scroll-mb-[120px]" />
+        </div>
+
+        {/* Mesaj çubuğu */}
+        <div className="sticky bottom-[calc(92px+env(safe-area-inset-bottom))] z-20 lg:bottom-5">
+          <div className="flex items-end gap-2 rounded-[24px] border border-line bg-white/95 p-2 shadow-bar backdrop-blur">
+            <button
+              type="button"
+              onClick={() => void clear()}
+              aria-label="Sohbeti temizle"
+              title="Sohbeti temizle"
+              disabled={busy}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-soft-danger hover:text-danger disabled:opacity-40"
+            >
+              <Trash2 size={19} />
+            </button>
+            <textarea
+              ref={taRef}
+              value={text}
+              rows={1}
+              onChange={(e) => {
+                setText(e.target.value);
+                autoGrow();
+              }}
+              onKeyDown={onKeyDown}
+              placeholder="Mesaj yazın…"
+              aria-label="Mesaj yazın"
+              className="max-h-[168px] min-h-[44px] flex-1 resize-none rounded-2xl bg-paper px-4 py-[11px] text-[15px] leading-[22px] text-ink outline-none transition placeholder:text-[#9AA6B2] focus:bg-white focus:ring-2 focus:ring-brand-blue/20"
+            />
+            {busy && !pending ? (
+              <button
+                type="button"
+                onClick={stopStreaming}
+                aria-label="Durdur"
+                title="Durdur"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy text-white shadow-card transition hover:bg-navy-deep"
+              >
+                <Square size={15} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void send()}
+                disabled={busy || !text.trim()}
+                aria-label="Gönder"
+                title="Gönder (Enter)"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-white shadow-fab transition hover:brightness-105 active:scale-95 disabled:opacity-45 disabled:shadow-none"
+              >
+                <ArrowUp size={20} strokeWidth={2.6} />
+              </button>
+            )}
+          </div>
+          <div className="mt-1.5 hidden text-center text-[11px] text-[#9AA6B2] sm:block">
+            Enter gönderir · Shift+Enter yeni satır · Kayıt işlemleri onayınız olmadan yapılmaz
+          </div>
+        </div>
+      </div>
+
+      {/* Masaüstü yan panel */}
+      <aside className="hidden lg:block">
+        <div className="sticky top-20 space-y-4">
+          <Card>
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white">
+                <Sparkles size={18} />
+              </span>
+              <div className="text-[15px] font-extrabold text-navy">Neler yapabilir?</div>
+            </div>
+            <ul className="mt-3 space-y-3">
+              {CAPABILITIES.map((c) => {
+                const Icon = c.icon;
+                return (
+                  <li key={c.title} className="flex gap-2.5">
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: `${c.color}1A`, color: c.color }}>
+                      <Icon size={15} strokeWidth={2.4} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-bold text-ink">{c.title}</span>
+                      <span className="block text-[12px] leading-snug text-muted">{c.text}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-4 rounded-xl bg-soft-green px-3 py-2 text-[12px] font-semibold leading-snug text-brand-teal">
+              Kayıt işlemleri yalnızca onay kartında “Onayla” dediğinizde uygulanır.
+            </div>
+          </Card>
+
+          <Card>
+            <div className="section-label">Örnek komutlar</div>
+            <div className="mt-3 flex flex-col gap-1.5">
+              {[...EXAMPLES, ...CHIPS.slice(0, 3)].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void send(c)}
+                  className="rounded-xl border border-line bg-white px-3 py-2 text-left text-[12.5px] font-semibold text-brand-teal transition hover:border-brand-blue/40 hover:bg-paper disabled:opacity-50"
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          <div className="px-1 text-[12px] text-muted">
+            Model: <span className="font-bold text-navy">{modelLabel}</span> · çaba {EFFORT_LABEL[effort] ?? effort}
+            <br />
+            <Link href="/app/ayarlar" className="font-bold text-brand-blue hover:underline">
+              Yapay zekâ ayarları
+            </Link>
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function Welcome({ onPick, disabled }: { onPick: (c: string) => void; disabled?: boolean }) {
+  return (
+    <div className="flex flex-col items-center px-2 py-8 text-center md:py-12">
+      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-fab">
+        <Sparkles size={28} />
+      </span>
+      <div className="mt-3 text-[21px] font-extrabold text-navy">İsgora Asistan</div>
+      <p className="mt-1.5 max-w-md text-[14px] leading-relaxed text-muted">
+        Kasa, kursiyer ve risk verilerinizi görür; kayıt girer, tahsilat işler, mevzuat sorularını yanıtlar. &quot;Yasin kasasına 1.500 TL kırtasiye gideri
+        gir&quot; diyebilirsiniz.
+      </p>
+      <div className="mt-5 flex max-w-xl flex-wrap justify-center gap-2">
+        {CHIPS.map((c) => (
+          <button
+            key={c}
+            type="button"
+            disabled={disabled}
+            onClick={() => onPick(c)}
+            className="rounded-full border border-line bg-white px-3.5 py-2 text-[13px] font-bold text-brand-teal shadow-card transition hover:-translate-y-0.5 hover:border-brand-blue/40 disabled:opacity-50"
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BotRow({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
+  return (
+    <div className="flex items-end gap-2">
+      <span className="mb-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+        <Sparkles size={15} />
+      </span>
+      <div className="min-w-0 max-w-[88%]">
+        <div className="rounded-[20px] rounded-bl-md border border-line bg-white px-4 py-2.5 text-[14.5px] leading-[1.6] text-text shadow-card">{children}</div>
+        <div className="mt-1 flex h-4 items-center gap-2 pl-1 text-[11px] text-[#9AA6B2]">{footer}</div>
+      </div>
+    </div>
+  );
+}
+
+function Bubble({ m }: { m: ChatMsg }) {
+  if (m.role === "user") {
+    return (
+      <div className="flex flex-col items-end">
+        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-[20px] rounded-br-md bg-[linear-gradient(135deg,#0B6F7B,#107398)] px-4 py-2.5 text-[14.5px] leading-[1.55] text-white shadow-card">
+          {m.content}
+        </div>
+        <div className="num mt-1 pr-1 text-[11px] text-[#9AA6B2]">{fmtTime(m.created_at)}</div>
+      </div>
+    );
+  }
+  if (m.role === "system") {
+    const ok = m.content.startsWith("✅");
+    const warn = m.content.startsWith("⚠️");
+    return (
+      <div className="flex justify-center">
+        <div
+          className={cx(
+            "max-w-[92%] whitespace-pre-line rounded-2xl px-3.5 py-2 text-center text-[13px] font-semibold leading-relaxed",
+            ok ? "bg-soft-green text-success" : warn ? "bg-soft-warn text-warn" : "bg-paper text-muted",
+          )}
+        >
+          {m.content}
+        </div>
+      </div>
+    );
+  }
+  return <AssistantBubble m={m} />;
+}
+
+function AssistantBubble({ m }: { m: ChatMsg }) {
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(m.content);
+      toast("Yanıt kopyalandı.", "info");
+    } catch {
+      toast("Kopyalanamadı.", "error");
+    }
+  }
+  return (
+    <div className="group">
+      <BotRow
+        footer={
+          <>
+            <span className="num">{fmtTime(m.created_at)}</span>
+            <button
+              type="button"
+              onClick={() => void copy()}
+              className="inline-flex items-center gap-1 rounded-md font-semibold opacity-0 transition hover:text-navy focus:opacity-100 group-hover:opacity-100"
+            >
+              <Copy size={12} /> Kopyala
+            </button>
+          </>
+        }
+      >
+        <Markdown text={m.content} />
+      </BotRow>
+    </div>
+  );
+}

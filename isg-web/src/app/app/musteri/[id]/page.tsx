@@ -15,7 +15,7 @@ import {
   UserX,
   Wallet,
 } from "lucide-react";
-import { Badge, Button, ButtonLink, Card, Chips, Empty, Field, Input, PageHeader, ProgressBar, Segment, Stat } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, Chips, Empty, Field, Input, PageHeader, ProgressBar, Segment } from "@/components/ui";
 import { FieldGroup } from "@/components/FieldGroup";
 import { confirmDialog, toast } from "@/components/feedback";
 import { useStore } from "@/lib/store";
@@ -117,16 +117,14 @@ function KursiyerDetail({ kid }: { kid: number }) {
         <div className="min-w-0 space-y-5">
           <Card>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-              <Stat label="Sözleşme" value={money(k.total_amount)} />
-              <Stat label="Tahsil" value={money(collected)} tone="green" />
-              <Stat label="Kalan" value={money(k.remaining_amount)} tone={debt ? "red" : "green"} />
-              <Stat label="Nakit" value={money(k.cash_amount)} tone="navy" />
-              <Stat label="Banka" value={money(k.bank_amount)} tone="navy" />
-              <div className="rounded-2xl border border-line/70 bg-white p-3.5 shadow-card">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-muted">Tahsilat oranı</div>
-                <div className="num mt-1 text-[19px] font-extrabold leading-tight text-brand-blue">%{cpct}</div>
+              <MiniStat label="Sözleşme" value={money(k.total_amount)} />
+              <MiniStat label="Tahsil" value={money(collected)} tone="text-success" />
+              <MiniStat label="Kalan" value={money(k.remaining_amount)} tone={debt ? "text-danger" : "text-success"} highlight={debt} />
+              <MiniStat label="Nakit" value={money(k.cash_amount)} />
+              <MiniStat label="Banka" value={money(k.bank_amount)} />
+              <MiniStat label="Tahsilat oranı" value={`%${cpct}`} tone="text-brand-blue">
                 <ProgressBar value={cpct} className="mt-1.5" />
-              </div>
+              </MiniStat>
             </div>
 
             <dl className="mt-5 grid gap-x-6 gap-y-2.5 text-[13.5px] sm:grid-cols-2">
@@ -255,6 +253,16 @@ function KursiyerDetail({ kid }: { kid: number }) {
       </div>
 
       {editKey ? <KursiyerForm key={editKey} id={kid} onClose={() => setEditKey(null)} /> : null}
+    </div>
+  );
+}
+
+function MiniStat({ label, value, tone = "text-navy", highlight, children }: { label: string; value: string; tone?: string; highlight?: boolean; children?: ReactNode }) {
+  return (
+    <div className={cx("min-w-0 rounded-2xl border p-3 sm:p-3.5", highlight ? "border-danger/25 bg-soft-danger/40" : "border-line/70 bg-paper/40")}>
+      <div className="text-[10.5px] font-bold uppercase tracking-wider text-muted sm:text-[11px]">{label}</div>
+      <div className={cx("num mt-1 whitespace-nowrap text-[15px] font-extrabold leading-tight sm:text-[18px]", tone)}>{value}</div>
+      {children}
     </div>
   );
 }

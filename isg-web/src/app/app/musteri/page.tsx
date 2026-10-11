@@ -54,7 +54,7 @@ function MusteriInner() {
   const groups = useMemo(() => {
     const m = new Map<string, { n: number; remaining: number }>();
     for (const k of active) {
-      const g = k.group_name.trim() || NO_GROUP;
+      const g = (k.group_name || "").trim() || NO_GROUP;
       const cur = m.get(g) ?? { n: 0, remaining: 0 };
       cur.n += 1;
       cur.remaining += k.remaining_amount;
@@ -67,12 +67,12 @@ function MusteriInner() {
     const n = norm(q);
     return active
       .filter((k) => {
-        if (group && (group === NO_GROUP ? k.group_name.trim() !== "" : k.group_name.trim() !== group)) return false;
+        if (group && (group === NO_GROUP ? (k.group_name || "").trim() !== "" : (k.group_name || "").trim() !== group)) return false;
         if (status === "borclu" && !(k.remaining_amount > 0)) return false;
         if (status === "odendi" && k.remaining_amount > 0) return false;
         if (n) {
           const hay = norm(`${k.full_name} ${k.phone} ${k.tc} ${k.notes} ${k.group_name} ${k.email} ${k.city} ${k.list_no} ${k.plasiyer}`);
-          if (!hay.includes(n) && !(n.replace(/\D/g, "").length >= 3 && k.phone.replace(/\D/g, "").includes(n.replace(/\D/g, "")))) return false;
+          if (!hay.includes(n) && !(n.replace(/\D/g, "").length >= 3 && (k.phone || "").replace(/\D/g, "").includes(n.replace(/\D/g, "")))) return false;
         }
         return true;
       })
