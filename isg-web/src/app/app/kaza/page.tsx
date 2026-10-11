@@ -109,7 +109,7 @@ function printOlay(o: Olay, firma: string) {
   const title = `${m.label} Tutanağı`;
   const body = `
     <h1>${esc(title)}</h1>
-    <div class="meta">${firma ? `${esc(firma)} · ` : ""}Kayıt no: ${o.id} · Düzenlenme: ${new Date().toLocaleDateString("tr-TR")}</div>
+    <div class="meta">${firma ? `${esc(firma)} · ` : ""}${o.id ? `Kayıt no: ${o.id} · ` : ""}Düzenlenme: ${new Date().toLocaleDateString("tr-TR")}</div>
     <table><tbody>
       ${rows
         .map(
@@ -429,9 +429,10 @@ function OlayForm({ initial, firma, onClose }: { initial: Partial<Olay>; firma: 
       }
     >
       <div className="space-y-4">
-        <Field label="Olay türü">
+        <div role="group" aria-label="Olay türü">
+          <div className="mb-1.5 text-[12.5px] font-bold text-navy">Olay türü</div>
           <Chips options={OLAY_TURLERI.map((t) => ({ value: t.v, label: t.label }))} value={f.tur} onChange={set("tur")} />
-        </Field>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Tarih">
             <Input type="date" value={f.tarih} max={today()} onChange={(e) => set("tarih")(e.target.value)} />

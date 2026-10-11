@@ -128,7 +128,7 @@ export default function AsistanPage() {
 
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_288px] lg:gap-6">
-      <div className="mx-auto flex min-h-[calc(100dvh-14rem)] w-full min-w-0 max-w-3xl flex-col">
+      <div className="mx-auto flex min-h-[calc(100dvh-11.5rem)] w-full min-w-0 max-w-3xl flex-col">
         <PageHeader title="Asistan" subtitle="Canlı verinize dayanarak yanıtlar; kayıtları onayınızla işler." />
 
         {mode === "none" ? (

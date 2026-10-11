@@ -223,9 +223,10 @@ function DenetimEditor({ initial, initialSablon, onDeleted }: { initial?: Deneti
                 }}
               />
             </Field>
-            <Field label="Şablon">
+            <div role="group" aria-label="Şablon">
+              <div className="mb-1.5 text-[12.5px] font-bold text-navy">Şablon</div>
               <Chips options={SABLONLAR.map((s) => ({ value: s.id, label: s.ad }))} value={sablonId} onChange={changeSablon} />
-            </Field>
+            </div>
           </div>
         </Card>
 

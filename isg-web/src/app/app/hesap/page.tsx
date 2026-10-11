@@ -44,6 +44,16 @@ function Line({ k, v, sub }: { k: string; v: ReactNode; sub?: ReactNode }) {
   );
 }
 
+/** Buton grupları için etiket (label öğesi ilk butonu tetiklemesin diye div) */
+function Group({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div role="group" aria-label={label}>
+      <div className="mb-1.5 text-[12.5px] font-bold text-navy">{label}</div>
+      {children}
+    </div>
+  );
+}
+
 function CardTitle({ icon: Icon, color, title, sub }: { icon: typeof Calculator; color: string; title: string; sub?: string }) {
   return (
     <div className="mb-4 flex items-start gap-3">
@@ -95,9 +105,9 @@ export default function HesapPage() {
         <Card className="lg:row-span-2 xl:row-span-1">
           <CardTitle icon={Building2} color="#107398" title="İşyeri Yükümlülük Hesabı" sub="Tehlike sınıfı ve çalışan sayısına göre asgari yükümlülükler." />
           <div className="space-y-3.5">
-            <Field label="Tehlike sınıfı">
+            <Group label="Tehlike sınıfı">
               <Chips options={HAZARD_CLASSES.map((x) => ({ value: x, label: x }))} value={hz} onChange={setHz} />
-            </Field>
+            </Group>
             <Field label="Çalışan sayısı">
               <Input type="number" inputMode="numeric" min={0} value={n} onChange={(e) => setN(e.target.value)} mono />
             </Field>
@@ -183,12 +193,12 @@ export default function HesapPage() {
         <Card>
           <CardTitle icon={Grid3x3} color="#F4772E" title="Hızlı 5x5 Skor" sub="Olasılık × Şiddet. Matristen bir hücre seçebilirsiniz." />
           <div className="space-y-3.5">
-            <Field label={`Olasılık (1-5) · ${OLASILIK_LABELS[o - 1]}`}>
+            <Group label={`Olasılık (1-5) · ${OLASILIK_LABELS[o - 1]}`}>
               <Scale value={o} onChange={setO} />
-            </Field>
-            <Field label={`Şiddet (1-5) · ${SIDDET_LABELS[s - 1]}`}>
+            </Group>
+            <Group label={`Şiddet (1-5) · ${SIDDET_LABELS[s - 1]}`}>
               <Scale value={s} onChange={setS} />
-            </Field>
+            </Group>
           </div>
 
           <div className="mt-4 rounded-2xl p-4 text-center transition-colors" style={{ background: b.bg, color: b.fg }}>
