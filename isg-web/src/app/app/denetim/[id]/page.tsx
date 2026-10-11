@@ -73,7 +73,7 @@ function DenetimEditor({ initial, initialSablon, onDeleted }: { initial?: Deneti
 
   const sablon = sablonById(sablonId);
   const c = sayim(cevaplar, sablon.maddeler.length);
-  const puan = denetimPuan(cevaplar);
+  const puan = denetimPuan(cevaplar, sablon.maddeler.length);
   const tone = puanTone(puan);
   const answeredPct = sablon.maddeler.length ? Math.round(((sablon.maddeler.length - c.cevapsiz) * 100) / sablon.maddeler.length) : 0;
 

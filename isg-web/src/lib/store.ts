@@ -618,10 +618,12 @@ export function olayStats(list: Olay[]): { kaza: number; ramak: number; kayip_gu
   };
 }
 
-export function denetimPuan(cevaplar: Record<number, Cevap>): number {
+/** Mobil uygulamadaki gibi: kapsam dışı hariç tüm maddeler paydada (cevapsız madde uygun sayılmaz). */
+export function denetimPuan(cevaplar: Record<number, Cevap>, maddeSayisi?: number): number {
   const vals = Object.values(cevaplar);
-  const applicable = vals.filter((v) => v !== "na").length;
-  if (!applicable) return 0;
+  const total = maddeSayisi ?? vals.length;
+  const applicable = total - vals.filter((v) => v === "na").length;
+  if (applicable <= 0) return 0;
   return Math.round((vals.filter((v) => v === "uygun").length * 100) / applicable);
 }
 
