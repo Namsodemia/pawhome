@@ -53,7 +53,7 @@ const FEATURES: { icon: LucideIcon; color: string; title: string; text: string }
   {
     icon: Sparkles,
     color: "#107398",
-    title: "İSGO Asistan",
+    title: "İsgora Asistan",
     text: "Kasa, kursiyer ve risk verinizi görür; “Yasin kasasına 1.500 TL kırtasiye gideri gir” deyin, onayınızla kaydetsin.",
   },
   {
@@ -97,7 +97,7 @@ export default function Landing() {
       <header className="sticky top-0 z-30 border-b border-line/70 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 md:px-6">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-horizontal.png" alt="İSGO" className="h-8 w-auto" />
+          <img src="/logo-horizontal.png" alt="İsgora" className="h-8 w-auto" />
           <nav className="ml-6 hidden items-center gap-6 text-[14px] font-semibold text-muted md:flex">
             <a href="#ozellikler" className="hover:text-navy">
               Özellikler
@@ -130,7 +130,7 @@ export default function Landing() {
               İş sağlığı ve güvenliğinin <span className="bg-brand bg-clip-text text-transparent">bütün işleri</span> tek ekranda.
             </h1>
             <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-muted">
-              Risk analizi, kasa/cari, kursiyer takibi, sınav hazırlık, sınıf duyuruları, mevzuat, kaza kaydı, saha denetimi ve hesaplayıcılar. İSGO mobil
+              Risk analizi, kasa/cari, kursiyer takibi, sınav hazırlık, sınıf duyuruları, mevzuat, kaza kaydı, saha denetimi ve hesaplayıcılar. İsgora mobil
               uygulamasının web sürümü: telefonda, tablette ve bilgisayarda aynı deneyim.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -311,7 +311,7 @@ export default function Landing() {
           {[
             [Database, "Verileriniz sizde", "Kayıtlar sunucuya değil, tarayıcınızın kendi veritabanına (IndexedDB) yazılır. Ayarlar'dan JSON yedek alıp geri yükleyebilirsiniz."],
             [Sparkles, "Claude ile çalışır", "Yapay zekâ özellikleri Anthropic Claude ile çalışır. Kendi API anahtarınızı girin ya da sunucuda tanımlı anahtarı kullanın."],
-            [Smartphone, "Telefona kurun", "Tarayıcı menüsünden “Ana ekrana ekle” deyin; İSGO uygulama gibi tam ekran açılır."],
+            [Smartphone, "Telefona kurun", "Tarayıcı menüsünden “Ana ekrana ekle” deyin; İsgora uygulama gibi tam ekran açılır."],
           ].map(([Icon, t, d]) => {
             const I = Icon as LucideIcon;
             return (
@@ -339,8 +339,8 @@ export default function Landing() {
       <footer className="border-t border-line py-8">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 text-[13px] text-muted md:px-6">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-horizontal.png" alt="İSGO" className="h-7 w-auto" />
-          <span>İSGO · İş Sağlığı ve Güvenliği App · Mevzuat özetleri bilgilendirme amaçlıdır; kesin işlem için güncel Resmî Gazete metnine bakın.</span>
+          <img src="/logo-horizontal.png" alt="İsgora" className="h-7 w-auto" />
+          <span>İsgora · İş Sağlığı ve Güvenliği App · Mevzuat özetleri bilgilendirme amaçlıdır; kesin işlem için güncel Resmî Gazete metnine bakın.</span>
         </div>
       </footer>
     </div>

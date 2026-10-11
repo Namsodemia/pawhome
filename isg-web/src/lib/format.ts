@@ -106,7 +106,7 @@ export function safeFileName(s: string): string {
     norm(s)
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/^_+|_+$/g, "")
-      .slice(0, 60) || "isgo"
+      .slice(0, 60) || "isgora"
   );
 }
 

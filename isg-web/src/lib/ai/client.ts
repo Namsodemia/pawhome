@@ -20,7 +20,7 @@ export const MODELS: { id: ModelId; label: string; note: string }[] = [
 export const DEFAULT_MODEL: ModelId = "claude-opus-5-5";
 
 const KEY_NAME = "anthropic_api_key";
-const ACCESS_NAME = "isgo_access_code";
+const ACCESS_NAME = "isgora_access_code";
 
 function lsGet(k: string): string {
   try {
@@ -110,7 +110,7 @@ export async function client(): Promise<Anthropic> {
       dangerouslyAllowBrowser: true,
       maxRetries: 3,
       timeout: 600_000,
-      defaultHeaders: code ? { "x-isgo-access": code } : undefined,
+      defaultHeaders: code ? { "x-isgora-access": code } : undefined,
     });
     _clientSig = sig;
   }

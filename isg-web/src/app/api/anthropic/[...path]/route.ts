@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ path: stri
     );
   }
   const access = process.env.APP_ACCESS_CODE;
-  if (access && req.headers.get("x-isgo-access") !== access) {
+  if (access && req.headers.get("x-isgora-access") !== access) {
     return Response.json(
       { type: "error", error: { type: "permission_error", message: "Erişim kodu hatalı veya girilmemiş (Ayarlar > Yapay Zekâ)." } },
       { status: 403 },

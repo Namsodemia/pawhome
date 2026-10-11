@@ -1,4 +1,4 @@
-// İSGO veri modeli — mobil uygulamadaki SQLite şemasının (isgo.db) birebir web karşılığı.
+// İsgora veri modeli — mobil uygulamadaki SQLite şemasının birebir web karşılığı.
 
 export type TrxType = "gelir" | "gider";
 export type PayMethod = "nakit" | "banka" | "kart";

@@ -77,7 +77,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
             Ayarlar
           </Link>
-          <div className="px-3 pt-2 text-[10.5px] text-[#9AA6B2]">İSGO Web · v1.0</div>
+          <div className="px-3 pt-2 text-[10.5px] text-[#9AA6B2]">İsgora Web · v1.0</div>
         </div>
       </aside>
 
@@ -113,7 +113,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <main className="mx-auto max-w-6xl px-4 pb-36 pt-5 md:px-6 lg:px-8 lg:pb-20">
           {hydrated ? <div className="animate-fade-in">{children}</div> : <ShellSkeleton />}
-          <footer className="mt-12 text-center text-[12px] text-[#9AA6B2]">İSGO · İş Sağlığı ve Güvenliği App</footer>
+          <footer className="mt-12 text-center text-[12px] text-[#9AA6B2]">İsgora · İş Sağlığı ve Güvenliği App</footer>
         </main>
       </div>
 

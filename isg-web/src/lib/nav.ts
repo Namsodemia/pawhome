@@ -35,7 +35,7 @@ export const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
       { href: "/app/musteri", label: "Müşteri Takip", short: "Müşteri", icon: Users, color: "#0B6F7B" },
       { href: "/app/siniflar", label: "Sınıflar", short: "Sınıflar", icon: MessagesSquare, color: "#1B8ECF" },
       { href: "/app/sinav", label: "Sınav Hazırlık", short: "Sınav", icon: GraduationCap, color: "#6C5CE7" },
-      { href: "/app/asistan", label: "İSGO Asistan", short: "Asistan", icon: Sparkles, color: "#107398" },
+      { href: "/app/asistan", label: "İsgora Asistan", short: "Asistan", icon: Sparkles, color: "#107398" },
     ],
   },
   {
@@ -65,5 +65,5 @@ export function isActive(pathname: string, href: string): boolean {
 
 export function titleFor(pathname: string): string {
   const hit = [...ALL_NAV].sort((a, b) => b.href.length - a.href.length).find((n) => isActive(pathname, n.href));
-  return hit?.label ?? "İSGO";
+  return hit?.label ?? "İsgora";
 }

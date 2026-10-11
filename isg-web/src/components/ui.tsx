@@ -13,7 +13,7 @@ export function Logo({ variant = "horizontal", white, className }: { variant?: "
   const src =
     variant === "mark" ? "/logo-mark.png" : variant === "full" ? "/logo.png" : white ? "/logo-horizontal-white.png" : "/logo-horizontal.png";
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt="İSGO — İş Sağlığı ve Güvenliği App" className={cx("select-none", className)} draggable={false} />;
+  return <img src={src} alt="İsgora — İş Sağlığı ve Güvenliği App" className={cx("select-none", className)} draggable={false} />;
 }
 
 // ---------------------------------------------------------------- Layout parçaları

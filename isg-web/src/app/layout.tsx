@@ -5,12 +5,12 @@ import "@fontsource/jetbrains-mono/600.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "İSGO — İş Sağlığı ve Güvenliği App", template: "%s · İSGO" },
+  title: { default: "İsgora — İş Sağlığı ve Güvenliği App", template: "%s · İsgora" },
   description:
     "Yapay zekâ destekli 5x5 risk analizi, kasa/cari, kursiyer takibi, İSG uzmanlığı sınav hazırlığı, sınıf mesajlaşma, mevzuat rehberi, kaza kaydı, saha denetimi ve İSG hesaplayıcı — tek uygulamada.",
-  applicationName: "İSGO",
+  applicationName: "İsgora",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "İSGO", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "İsgora", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

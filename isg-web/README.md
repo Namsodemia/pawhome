@@ -1,6 +1,6 @@
-# İSGO Web — İş Sağlığı ve Güvenliği App
+# İsgora Web — İş Sağlığı ve Güvenliği App
 
-İSGO mobil uygulamasının (Expo / React Native) web sürümü. Aynı modüller, aynı iş kuralları ve aynı marka; telefonda, tablette ve masaüstünde çalışan, Vercel'e hazır bir Next.js uygulaması.
+İsgora mobil uygulamasının (Expo / React Native) web sürümü. Aynı modüller, aynı iş kuralları ve aynı marka; telefonda, tablette ve masaüstünde çalışan, Vercel'e hazır bir Next.js uygulaması.
 
 ## Modüller
 
@@ -12,7 +12,7 @@
 | Müşteri Takip | `/app/musteri` | Kursiyer sözleşme/tahsilat/kalan, hızlı tahsilat, kasaya otomatik ve çift kayıtsız yansıma, Excel/CSV içe aktarma, WhatsApp/arama |
 | Sınıflar | `/app/siniflar` | Liste yapıştırarak üye ekleme (numara ayrıştırma), Müşteri Takip'ten aktarma, WhatsApp sırası / toplu SMS duyurusu |
 | Sınav Hazırlık | `/app/sinav` | Ders bazında ön/son test, 25–50 soruluk deneme, süre, cevap anahtarı, geçme notu 70; kendi `sorular.json` bankanızı içe aktarma |
-| İSGO Asistan | `/app/asistan` | Canlı veriyi görür, mevzuat sorularını yanıtlar; kasa hareketi / kursiyer / tahsilat kayıtlarını **onayınızla** girer |
+| İsgora Asistan | `/app/asistan` | Canlı veriyi görür, mevzuat sorularını yanıtlar; kasa hareketi / kursiyer / tahsilat kayıtlarını **onayınızla** girer |
 | Mevzuat Rehberi | `/app/mevzuat` | 6331 ve yönetmeliklerden saha özeti, arama |
 | Kaza / Ramak Kala | `/app/kaza` | Olay kaydı, kök neden, SGK 3 iş günü son gün takibi, tutanak yazdırma |
 | Saha Denetimi | `/app/denetim` | 4 kontrol listesi şablonu, uygunluk puanı, PDF rapor |

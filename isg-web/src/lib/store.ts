@@ -538,7 +538,7 @@ export const useStore = create<Store>()(
       };
     },
     {
-      name: "isgo-data",
+      name: "isgora-data",
       version: 1,
       storage: createJSONStorage(() => idbStorage),
       partialize: (s) => pickData(s),

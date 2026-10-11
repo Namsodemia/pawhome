@@ -145,7 +145,7 @@ export default function Dashboard() {
                   <Sparkles size={22} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[15.5px] font-extrabold text-navy">İSGO&apos;ya hoş geldiniz</div>
+                  <div className="text-[15.5px] font-extrabold text-navy">İsgora&apos;ya hoş geldiniz</div>
                   <div className="text-[13.5px] text-muted">
                     Verileriniz yalnızca bu tarayıcıda saklanır. Modülleri dolu görmek için örnek verileri yükleyebilirsiniz.
                   </div>

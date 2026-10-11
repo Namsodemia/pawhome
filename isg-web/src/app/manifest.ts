@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "İSGO — İş Sağlığı ve Güvenliği App",
-    short_name: "İSGO",
+    name: "İsgora — İş Sağlığı ve Güvenliği App",
+    short_name: "İsgora",
     description: "İSG süper uygulaması: risk analizi, kasa, kursiyer, sınav, sınıflar ve saha araçları.",
     start_url: "/app",
     display: "standalone",

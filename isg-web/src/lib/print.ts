@@ -41,7 +41,7 @@ export function printHtml(title: string, bodyHtml: string, opts: { landscape?: b
   w.document.open();
   w.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>@page{size:A4 ${opts.landscape ? "landscape" : "portrait"};margin:12mm}${BASE_CSS}${opts.extraCss || ""}</style></head>
-<body><div class="brand"><img src="${logo}" alt="İSGO"><div style="text-align:right;color:#6E7C8C;font-size:10px">İş Sağlığı ve Güvenliği App<br>${new Date().toLocaleDateString("tr-TR")}</div></div>
+<body><div class="brand"><img src="${logo}" alt="İsgora"><div style="text-align:right;color:#6E7C8C;font-size:10px">İş Sağlığı ve Güvenliği App<br>${new Date().toLocaleDateString("tr-TR")}</div></div>
 ${bodyHtml}
 <script>window.onload=function(){setTimeout(function(){window.focus();window.print();},250)}</script>
 </body></html>`);

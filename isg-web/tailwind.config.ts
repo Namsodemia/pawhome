@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 
-// İSGO marka renkleri (logodan örneklenmiş — mobil uygulamadaki src/theme.ts ile aynı)
+// İsgora marka renkleri (logodan örneklenmiş — mobil uygulamadaki src/theme.ts ile aynı)
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
