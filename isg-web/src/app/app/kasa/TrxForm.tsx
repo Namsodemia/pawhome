@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Check, Trash2 } from "lucide-react";
 import { Button, Chips, Field, Input, Segment, Sheet } from "@/components/ui";
+import { FieldGroup } from "@/components/FieldGroup";
 import { confirmDialog, toast } from "@/components/feedback";
 import { useStore } from "@/lib/store";
 import { money, parseNum, today } from "@/lib/format";
@@ -147,21 +148,21 @@ export function TrxForm({ id, onClose }: { id: number | null; onClose: () => voi
           <Input type="date" mono value={date} onChange={(e) => setDate(e.target.value)} />
         </Field>
 
-        <Field label="Kasa (hangi kasaya işlensin?)">
+        <FieldGroup label="Kasa (hangi kasaya işlensin?)">
           <Chips options={kasaOpts} value={kasaId} onChange={setKasaId} />
-        </Field>
+        </FieldGroup>
 
-        <Field label="Kategori">
+        <FieldGroup label="Kategori">
           {catsOfType.length ? (
             <Chips options={catsOfType.map((c) => ({ value: c.id, label: c.name }))} value={effectiveCat} onChange={setCatId} />
           ) : (
             <div className="text-[13px] text-muted">Bu tür için kategori yok. Ayarlar &gt; Kategoriler bölümünden ekleyebilirsiniz.</div>
           )}
-        </Field>
+        </FieldGroup>
 
-        <Field label="Ödeme aracı">
+        <FieldGroup label="Ödeme aracı">
           <Chips options={METHOD_OPTS} value={method} onChange={setMethod} />
-        </Field>
+        </FieldGroup>
 
         {!editable ? (
           <div className="rounded-2xl bg-soft-blue px-4 py-3 text-[13px] text-brand-blue">
