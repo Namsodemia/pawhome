@@ -159,6 +159,26 @@ export interface Mesaj {
   created_at: string;
 }
 
+/** İşyeri hekimi — sağlık gözetimi (periyodik muayene) kaydı */
+export type MuayeneTur = "ise_giris" | "periyodik" | "ise_donus" | "gorev_degisikligi";
+export type MuayeneSonuc = "calisabilir" | "kisitli" | "calisamaz";
+export interface Muayene {
+  id: number;
+  calisan: string;
+  tc: string;
+  isyeri: string;
+  gorev: string;
+  hazard_class: HazardClass;
+  tur: MuayeneTur;
+  tarih: string; // muayene tarihi
+  sonraki: string; // bir sonraki periyodik muayene tarihi
+  sonuc: MuayeneSonuc;
+  tetkikler: string[];
+  notlar: string;
+  created_at: string;
+}
+export type MuayeneInput = Omit<Muayene, "id" | "created_at">;
+
 export interface ChatMsg {
   id: number;
   role: "user" | "assistant" | "system";

@@ -5,7 +5,8 @@
  *   POST ?r=data            değişen koleksiyonları kaydet {baseRev, changes}
  *   GET|POST|DELETE ?r=bank içe aktarılan soru bankası
  *   GET  ?r=ai-status       sunucu anahtarı tanımlı mı
- *   POST|DELETE ?r=ai-key   sunucu anahtarını kaydet / sil
+ *   POST|DELETE ?r=ai-key   kullanıcının API anahtarını kaydet / sil
+ *   POST ?r=profile         rol ve profil bilgilerini güncelle
  *   POST /api/anthropic/v1/messages  (.htaccess ile ?r=anthropic) Claude vekili
  *   GET  ?r=ping            arka uç var mı (giriş gerekmez)
  */
@@ -24,7 +25,28 @@ try {
 
         case 'me':
             $u = require_user();
-            json_out(['user' => $u['kullanici_adi']]);
+            json_out(['user' => $u['kullanici_adi'], 'ad' => $u['ad_soyad'], 'rol' => user_role($u), 'profil' => user_profile($u)]);
+            break;
+
+        case 'profile':
+            $u = require_user();
+            require_app_header();
+            if ($method !== 'POST') {
+                fail_json(405, 'Desteklenmeyen yöntem.');
+            }
+            $in = json_decode((string) file_get_contents('php://input'), true);
+            if (!is_array($in)) {
+                fail_json(400, 'Geçersiz veri.');
+            }
+            $rol = isset($in['rol']) ? (string) $in['rol'] : user_role($u);
+            if (!in_array($rol, ISGORA_ROLES, true)) {
+                fail_json(400, 'Geçersiz rol.');
+            }
+            $profil = array_merge(user_profile($u), clean_profile(is_array($in['profil'] ?? null) ? $in['profil'] : []));
+            $ad = trim((string) ($profil['ad_soyad'] ?? $u['ad_soyad'] ?? ''));
+            db()->prepare('UPDATE kullanicilar SET rol = ?, profil = ?, ad_soyad = ? WHERE id = ?')
+                ->execute([$rol, json_encode($profil, ISGORA_JSON), $ad, (int) $u['id']]);
+            json_out(['ok' => true, 'rol' => $rol, 'profil' => $profil]);
             break;
 
         case 'data':
@@ -33,15 +55,15 @@ try {
                 load_state($u);
             } elseif ($method === 'POST') {
                 require_app_header();
-                save_changes();
+                save_changes((int) $u['id']);
             }
             fail_json(405, 'Desteklenmeyen yöntem.');
             break;
 
         case 'bank':
-            require_user();
+            $uid = (int) require_user()['id'];
             if ($method === 'GET') {
-                $raw = meta_get('soru_bankasi');
+                $raw = umeta_get($uid, 'soru_bankasi');
                 json_out($raw === null ? 'null' : $raw);
             }
             require_app_header();
@@ -50,27 +72,27 @@ try {
                 if (json_decode((string) $raw) === null) {
                     fail_json(400, 'Geçersiz soru bankası.');
                 }
-                meta_set('soru_bankasi', $raw);
+                umeta_set($uid, 'soru_bankasi', $raw);
                 json_out(['ok' => true]);
             }
             if ($method === 'DELETE') {
-                meta_set('soru_bankasi', null);
+                umeta_set($uid, 'soru_bankasi', null);
                 json_out(['ok' => true]);
             }
             fail_json(405, 'Desteklenmeyen yöntem.');
             break;
 
         case 'ai-status':
-            require_user();
-            $fromFile = trim((string) (cfg()['anthropic_api_key'] ?? '')) !== '';
-            json_out(['serverKey' => server_ai_key() !== '', 'accessCodeRequired' => false, 'backend' => 'php', 'keyFromFile' => $fromFile]);
+            $uid = (int) require_user()['id'];
+            $own = trim((string) umeta_get($uid, 'anthropic_api_key', '')) !== '';
+            json_out(['serverKey' => server_ai_key($uid) !== '', 'accessCodeRequired' => false, 'backend' => 'php', 'keyFromFile' => !$own && server_ai_key($uid) !== '']);
             break;
 
         case 'ai-key':
-            require_user();
+            $uid = (int) require_user()['id'];
             require_app_header();
             if ($method === 'DELETE') {
-                meta_set('anthropic_api_key', null);
+                umeta_set($uid, 'anthropic_api_key', null);
                 json_out(['ok' => true]);
             }
             if ($method === 'POST') {
@@ -79,7 +101,7 @@ try {
                 if (!preg_match('/^sk-ant-[A-Za-z0-9_\-]{20,}$/', $key)) {
                     fail_json(400, 'Anahtar "sk-ant-" ile başlamalı.');
                 }
-                meta_set('anthropic_api_key', $key);
+                umeta_set($uid, 'anthropic_api_key', $key);
                 json_out(['ok' => true]);
             }
             fail_json(405, 'Desteklenmeyen yöntem.');
@@ -103,20 +125,26 @@ try {
 function load_state(array $u): void
 {
     $db = db();
-    $rev = meta_get('rev');
+    $uid = (int) $u['id'];
+    $rev = umeta_get($uid, 'rev');
     $parts = [];
     foreach (ISGORA_COLLECTIONS as $key => $table) {
-        $rows = $db->query("SELECT veri FROM $table ORDER BY sira, id")->fetchAll(PDO::FETCH_COLUMN);
+        $st = $db->prepare("SELECT veri FROM $table WHERE kullanici_id = ? ORDER BY sira, id");
+        $st->execute([$uid]);
+        $rows = $st->fetchAll(PDO::FETCH_COLUMN);
         $parts[] = json_encode($key) . ':[' . implode(',', $rows) . ']';
     }
-    $parts[] = '"seq":' . (int) meta_get('seq', '0');
-    $settings = meta_get('settings');
+    $parts[] = '"seq":' . (int) umeta_get($uid, 'seq', '0');
+    $settings = umeta_get($uid, 'settings');
     if ($settings !== null) {
         $parts[] = '"settings":' . $settings;
     }
     $out = '{"rev":' . (int) ($rev ?? 0)
         . ',"empty":' . ($rev === null ? 'true' : 'false')
         . ',"user":' . json_encode($u['kullanici_adi'], ISGORA_JSON)
+        . ',"ad":' . json_encode((string) ($u['ad_soyad'] ?? ''), ISGORA_JSON)
+        . ',"rol":' . json_encode(user_role($u))
+        . ',"profil":' . json_encode((object) user_profile($u), ISGORA_JSON)
         . ',"state":{' . implode(',', $parts) . '}}';
     json_out($out);
 }
@@ -125,7 +153,7 @@ function load_state(array $u): void
  * Yalnızca değişen koleksiyonlar gelir; her biri tablo içinde baştan yazılır.
  * baseRev sunucudaki sürümle aynı değilse (başka sekme/cihaz kaydetmiş) 409 döner.
  */
-function save_changes(): void
+function save_changes(int $uid): void
 {
     $in = json_decode((string) file_get_contents('php://input'));
     if (!is_object($in) || !isset($in->changes) || !is_object($in->changes)) {
@@ -135,7 +163,7 @@ function save_changes(): void
     $db = db();
     $db->exec('BEGIN IMMEDIATE');
     try {
-        $rev = (int) meta_get('rev', '0');
+        $rev = (int) umeta_get($uid, 'rev', '0');
         if ($base !== $rev) {
             $db->exec('ROLLBACK');
             json_out(['error' => 'conflict', 'rev' => $rev], 409);
@@ -147,22 +175,22 @@ function save_changes(): void
                     continue;
                 }
                 $table = ISGORA_COLLECTIONS[$key];
-                $db->exec("DELETE FROM $table");
-                $st = $db->prepare("INSERT OR REPLACE INTO $table (id, sira, veri, guncelleme) VALUES (?, ?, ?, ?)");
+                $db->prepare("DELETE FROM $table WHERE kullanici_id = ?")->execute([$uid]);
+                $st = $db->prepare("INSERT OR REPLACE INTO $table (kullanici_id, id, sira, veri, guncelleme) VALUES (?, ?, ?, ?, ?)");
                 foreach ($val as $i => $rec) {
                     if (!is_object($rec) || !isset($rec->id) || !is_numeric($rec->id)) {
                         continue;
                     }
-                    $st->execute([(int) $rec->id, (int) $i, json_encode($rec, ISGORA_JSON), $now]);
+                    $st->execute([$uid, (int) $rec->id, (int) $i, json_encode($rec, ISGORA_JSON), $now]);
                 }
             } elseif ($key === 'seq') {
-                meta_set('seq', (string) (int) $val);
+                umeta_set($uid, 'seq', (string) (int) $val);
             } elseif ($key === 'settings' && is_object($val)) {
-                meta_set('settings', json_encode($val, ISGORA_JSON));
+                umeta_set($uid, 'settings', json_encode($val, ISGORA_JSON));
             }
         }
         $rev++;
-        meta_set('rev', (string) $rev);
+        umeta_set($uid, 'rev', (string) $rev);
         $db->exec('COMMIT');
     } catch (Throwable $e) {
         if ($db->inTransaction()) {
@@ -177,12 +205,13 @@ function save_changes(): void
 
 function proxy_anthropic(): void
 {
-    if (!current_user()) {
+    $u = current_user();
+    if (!$u) {
         // SDK 401'i "anahtar geçersiz" sanmasın diye 403 + açıklama
         json_out(['type' => 'error', 'error' => ['type' => 'permission_error', 'message' => 'Oturum süresi doldu; sayfayı yenileyip tekrar giriş yapın.']], 403);
     }
     require_app_header();
-    $key = server_ai_key();
+    $key = server_ai_key((int) $u['id']);
     if ($key === '') {
         json_out(['type' => 'error', 'error' => ['type' => 'api_error', 'message' => 'Sunucuda API anahtarı tanımlı değil. Ayarlar > Yapay Zekâ bölümünden ekleyin.']], 503);
     }

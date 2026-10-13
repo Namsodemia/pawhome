@@ -5,6 +5,7 @@ import {
   GraduationCap,
   House,
   MessagesSquare,
+  Stethoscope,
   Settings,
   ShieldCheck,
   Siren,
@@ -13,6 +14,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
+import { MODULLER, SEKMELER, type Modul, type Rol } from "./roles";
 
 export interface NavItem {
   href: string;
@@ -44,6 +46,7 @@ export const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
       { href: "/app/mevzuat", label: "Mevzuat Rehberi", icon: BookOpen, color: "#1E3145" },
       { href: "/app/kaza", label: "Kaza / Ramak Kala", icon: Siren, color: "#D6334C" },
       { href: "/app/denetim", label: "Saha Denetimi", icon: ClipboardCheck, color: "#3AA466" },
+      { href: "/app/muayene", label: "Periyodik Muayene", short: "Muayene", icon: Stethoscope, color: "#D6334C" },
       { href: "/app/hesap", label: "İSG Hesaplayıcı", icon: Calculator, color: "#F4772E" },
     ],
   },
@@ -53,10 +56,32 @@ export const SETTINGS_ITEM: NavItem = { href: "/app/ayarlar", label: "Ayarlar", 
 
 export const ALL_NAV: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), SETTINGS_ITEM];
 
-/** Mobil alt sekme çubuğu — mobil uygulamadaki 6 sekme, aynı sırayla */
+/** Mobil alt sekme çubuğu — OSGB için mobil uygulamadaki 6 sekme, aynı sırayla */
 export const TABS: NavItem[] = ["/app", "/app/risk", "/app/kasa", "/app/musteri", "/app/sinav", "/app/asistan"].map(
   (h) => ALL_NAV.find((n) => n.href === h)!,
 );
+
+function modulOfHref(href: string): Modul | null {
+  const seg = href.split("/")[2];
+  return seg ? (seg as Modul) : null;
+}
+
+/** Role göre kenar çubuğu grupları (izinsiz modüller gizlenir) */
+export function navFor(rol: Rol): { group: string; items: NavItem[] }[] {
+  const allowed = MODULLER[rol];
+  return NAV_GROUPS.map((g) => ({
+    group: g.group,
+    items: g.items.filter((n) => {
+      const m = modulOfHref(n.href);
+      return m === null || allowed.includes(m);
+    }),
+  })).filter((g) => g.items.length > 0);
+}
+
+/** Role göre mobil alt sekmeler: Ana Sayfa + rolün en çok kullandığı modüller */
+export function tabsFor(rol: Rol): NavItem[] {
+  return ["/app", ...SEKMELER[rol].map((m) => `/app/${m}`)].map((h) => ALL_NAV.find((n) => n.href === h)!).filter(Boolean);
+}
 
 export function isActive(rawPathname: string, href: string): boolean {
   // Statik dışa aktarımda adresler "/" ile bitebilir (trailingSlash)

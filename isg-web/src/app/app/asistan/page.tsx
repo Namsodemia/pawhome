@@ -5,6 +5,11 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 import {
   ArrowUp,
   BookOpen,
+  ClipboardCheck,
+  GraduationCap,
+  ListChecks,
+  Siren,
+  Stethoscope,
   ChevronRight,
   Copy,
   KeyRound,
@@ -26,28 +31,91 @@ import { confirmDialog, toast } from "@/components/feedback";
 import { Markdown } from "./Markdown";
 import { ActionCard } from "./ActionCard";
 import { decide, resetSession, sendMessage, stopStreaming, useAsistan } from "./session";
+import { useRol, type Rol } from "@/lib/roles";
 
-const CHIPS = [
-  "Bu ay kasa durumu nasıl?",
-  "Borçlu kursiyerleri listele",
-  "Program bazında özet ver",
-  "6331 sayılı kanunda işverenin yükümlülükleri neler?",
-  "Risk değerlendirmesi ne sıklıkla yenilenir?",
-];
+type Cap = { icon: LucideIcon; color: string; title: string; text: string };
 
-const EXAMPLES = ["Yasin kasasına 1.500 TL kırtasiye gideri gir", "Ayşe Yılmaz'dan 2.000 TL nakit tahsilat al"];
-
-const CAPABILITIES: { icon: LucideIcon; color: string; title: string; text: string }[] = [
-  { icon: Wallet, color: "#107398", title: "Kasa / Cari", text: "Bakiyeler, aylık gelir-gider; tek veya toplu gelir/gider kaydı." },
-  { icon: ReceiptText, color: "#0B6F7B", title: "Tahsilat", text: "Kursiyerden tek veya toplu tahsilat; kalan borç düşer, kasaya yansır." },
-  { icon: UserPlus, color: "#5CBD7D", title: "Kursiyer kaydı", text: "Tek veya liste hâlinde kursiyer ekler; aynı TC + program atlanır." },
-  { icon: ShieldCheck, color: "#F4772E", title: "Risk ve olaylar", text: "Risk analizleri, kaza / ramak kala ve denetim özetleri." },
-  { icon: BookOpen, color: "#1E3145", title: "Mevzuat", text: "6331, RD Yönetmeliği, 5x5 matris ve İSG yükümlülükleri." },
-];
+const ROL_ICERIK: Record<Rol, { chips: string[]; examples: string[]; caps: Cap[]; intro: string; note: string | null }> = {
+  osgb: {
+    chips: [
+      "Bu ay kasa durumu nasıl?",
+      "Borçlu kursiyerleri listele",
+      "Program bazında özet ver",
+      "6331 sayılı kanunda işverenin yükümlülükleri neler?",
+      "Risk değerlendirmesi ne sıklıkla yenilenir?",
+    ],
+    examples: ["Yasin kasasına 1.500 TL kırtasiye gideri gir", "Ayşe Yılmaz'dan 2.000 TL nakit tahsilat al"],
+    caps: [
+      { icon: Wallet, color: "#107398", title: "Kasa / Cari", text: "Bakiyeler, aylık gelir-gider; tek veya toplu gelir/gider kaydı." },
+      { icon: ReceiptText, color: "#0B6F7B", title: "Tahsilat", text: "Kursiyerden tek veya toplu tahsilat; kalan borç düşer, kasaya yansır." },
+      { icon: UserPlus, color: "#5CBD7D", title: "Kursiyer kaydı", text: "Tek veya liste hâlinde kursiyer ekler; aynı TC + program atlanır." },
+      { icon: ShieldCheck, color: "#F4772E", title: "Risk ve olaylar", text: "Risk analizleri, kaza / ramak kala ve denetim özetleri." },
+      { icon: BookOpen, color: "#1E3145", title: "Mevzuat", text: "6331, RD Yönetmeliği, 5x5 matris ve İSG yükümlülükleri." },
+    ],
+    intro: 'Kasa, kursiyer ve risk verilerinizi görür; kayıt girer, tahsilat işler, mevzuat sorularını yanıtlar. "Yasin kasasına 1.500 TL kırtasiye gideri gir" diyebilirsiniz.',
+    note: "Kayıt işlemleri yalnızca onay kartında “Onayla” dediğinizde uygulanır.",
+  },
+  uzman: {
+    chips: [
+      "En yüksek riskli maddelerimi özetle",
+      "Son kaza için 5 Neden analizi yap",
+      "Yüksekte çalışma için kontrol listesi hazırla",
+      "Tehlikeli sınıfta çalışan eğitimi kaç saat?",
+      "Acil durum planında neler olmalı?",
+    ],
+    examples: ["Denetimlerde en sık uygunsuzluk ne?", "SGK'ya bildirilmemiş kazalarım var mı?"],
+    caps: [
+      { icon: ShieldCheck, color: "#5CBD7D", title: "Risk değerlendirme", text: "Analizlerinizi okur; kritik maddeler ve önlem önerileri." },
+      { icon: Siren, color: "#D6334C", title: "Kaza araştırması", text: "Kök neden (5 Neden, balık kılçığı) ve düzeltici faaliyet önerisi." },
+      { icon: ClipboardCheck, color: "#3AA466", title: "Denetim", text: "Uygunluk sonuçları ve kontrol listesi hazırlama." },
+      { icon: BookOpen, color: "#1E3145", title: "Mevzuat", text: "6331 ve yönetmeliklerdeki süre, sayı ve yükümlülükler." },
+    ],
+    intro: "Risk analizlerinizi, olay ve denetim kayıtlarınızı görür; kök neden analizi, önlem ve mevzuat sorularında yardım eder.",
+    note: null,
+  },
+  hekim: {
+    chips: [
+      "Muayenesi geciken çalışanları listele",
+      "Gürültülü işte hangi tetkikler yapılmalı?",
+      "Meslek hastalığı şüphesinde bildirim süreci nasıl?",
+      "Çok tehlikeli işte periyodik muayene sıklığı?",
+      "İşe dönüş muayenesinde nelere bakılır?",
+    ],
+    examples: ["Bu ay muayenesi gelen çalışanlar kimler?", "Kaynakçılar için tetkik planı öner"],
+    caps: [
+      { icon: Stethoscope, color: "#D6334C", title: "Sağlık gözetimi", text: "Geciken / yaklaşan muayeneler ve tetkik planı." },
+      { icon: Siren, color: "#F4772E", title: "Meslek hastalığı", text: "Şüphe, bildirim ve iş kazası sonrası süreç." },
+      { icon: ShieldCheck, color: "#5CBD7D", title: "Risk ve maruziyet", text: "Risk analizlerine göre sağlık riskleri." },
+      { icon: BookOpen, color: "#1E3145", title: "Mevzuat", text: "İşyeri hekimi görev ve süreleri, periyotlar." },
+    ],
+    intro: "Muayene kayıtlarınızı ve olayları görür; periyodik muayene, tetkik planı, meslek hastalığı ve mevzuat sorularında yardım eder. Klinik karar sizindir.",
+    note: null,
+  },
+  ogrenci: {
+    chips: [
+      "Risk değerlendirmesi konusunu özetle",
+      "Bana 5 soruluk mini sınav yap",
+      "Tehlike sınıflarına göre süreleri tablo yap",
+      "Zayıf olduğum dersleri çalışalım",
+      "İSG kurulu kimlerden oluşur?",
+    ],
+    examples: ["6331'de çalışan temsilcisi sayıları nedir?", "KKD kategorilerini örnekle anlat"],
+    caps: [
+      { icon: GraduationCap, color: "#6C5CE7", title: "Konu anlatımı", text: "Sade, örnekli anlatım ve özet tablolar." },
+      { icon: ListChecks, color: "#107398", title: "Mini sınav", text: "Çoktan seçmeli sorular ve açıklamalı cevaplar." },
+      { icon: ShieldCheck, color: "#5CBD7D", title: "Zayıf konular", text: "Deneme sonuçlarınıza göre çalışma önerisi." },
+      { icon: BookOpen, color: "#1E3145", title: "Mevzuat", text: "Ezberlenmesi gereken süre ve sayılar." },
+    ],
+    intro: "Deneme sonuçlarınızı görür; konu anlatır, örnek soru sorar, ezberlenmesi gereken süre ve sayıları tablo hâlinde verir.",
+    note: null,
+  },
+};
 
 const EFFORT_LABEL: Record<string, string> = { low: "düşük", medium: "orta", high: "yüksek" };
 
 export default function AsistanPage() {
+  const rol = useRol();
+  const { chips: CHIPS, examples: EXAMPLES, caps: CAPABILITIES, note } = ROL_ICERIK[rol];
   const chat = useStore((s) => s.chat);
   const clearChat = useStore((s) => s.clearChat);
   const model = useStore((s) => s.settings.model);
@@ -273,9 +341,7 @@ export default function AsistanPage() {
                 );
               })}
             </ul>
-            <div className="mt-4 rounded-xl bg-soft-green px-3 py-2 text-[12px] font-semibold leading-snug text-brand-teal">
-              Kayıt işlemleri yalnızca onay kartında “Onayla” dediğinizde uygulanır.
-            </div>
+            {note ? <div className="mt-4 rounded-xl bg-soft-green px-3 py-2 text-[12px] font-semibold leading-snug text-brand-teal">{note}</div> : null}
           </Card>
 
           <Card>
@@ -309,16 +375,15 @@ export default function AsistanPage() {
 }
 
 function Welcome({ onPick, disabled }: { onPick: (c: string) => void; disabled?: boolean }) {
+  const rol = useRol();
+  const { chips: CHIPS, intro } = ROL_ICERIK[rol];
   return (
     <div className="flex flex-col items-center px-2 py-8 text-center md:py-12">
       <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-fab">
         <Sparkles size={28} />
       </span>
       <div className="mt-3 text-[21px] font-extrabold text-navy">İsgora Asistan</div>
-      <p className="mt-1.5 max-w-md text-[14px] leading-relaxed text-muted">
-        Kasa, kursiyer ve risk verilerinizi görür; kayıt girer, tahsilat işler, mevzuat sorularını yanıtlar. &quot;Yasin kasasına 1.500 TL kırtasiye gideri
-        gir&quot; diyebilirsiniz.
-      </p>
+      <p className="mt-1.5 max-w-md text-[14px] leading-relaxed text-muted">{intro}</p>
       <div className="mt-5 flex max-w-xl flex-wrap justify-center gap-2">
         {CHIPS.map((c) => (
           <button

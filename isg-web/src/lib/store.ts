@@ -14,6 +14,8 @@ import type {
   Kursiyer,
   KursiyerInput,
   Mesaj,
+  Muayene,
+  MuayeneInput,
   MesajKanal,
   Olay,
   OlayInput,
@@ -64,6 +66,7 @@ export interface Data {
   uyeler: Uye[];
   mesajlar: Mesaj[];
   chat: ChatMsg[];
+  muayeneler: Muayene[];
   settings: Settings;
 }
 
@@ -88,6 +91,7 @@ export function initialData(): Data {
     uyeler: [],
     mesajlar: [],
     chat: [],
+    muayeneler: [],
     settings: { ...DEFAULT_SETTINGS },
   };
 }
@@ -107,6 +111,7 @@ const DATA_KEYS: (keyof Data)[] = [
   "uyeler",
   "mesajlar",
   "chat",
+  "muayeneler",
   "settings",
 ];
 
@@ -152,6 +157,9 @@ export interface Actions {
   // denetim
   saveDenetim: (d: DenetimInput, id?: number | null) => number;
   deleteDenetim: (id: number) => void;
+  // periyodik muayene (işyeri hekimi)
+  saveMuayene: (m: MuayeneInput, id?: number | null) => number;
+  deleteMuayene: (id: number) => void;
   // sınıflar
   addSinif: (ad: string, aciklama: string, renk: string) => number;
   updateSinif: (id: number, ad: string, aciklama: string, renk: string) => void;
@@ -420,6 +428,18 @@ export const useStore = create<Store>()(
           return nid;
         },
         deleteDenetim: (id) => set((s) => ({ denetimler: s.denetimler.filter((x) => x.id !== id) })),
+
+        // ---------- periyodik muayene ----------
+        saveMuayene: (m, id) => {
+          if (id) {
+            set((s) => ({ muayeneler: s.muayeneler.map((x) => (x.id === id ? { ...x, ...m } : x)) }));
+            return id;
+          }
+          const nid = nextId();
+          set((s) => ({ muayeneler: [...s.muayeneler, { ...m, id: nid, created_at: nowIso() }] }));
+          return nid;
+        },
+        deleteMuayene: (id) => set((s) => ({ muayeneler: s.muayeneler.filter((x) => x.id !== id) })),
 
         // ---------- sınıflar ----------
         addSinif: (ad, aciklama, renk) => {

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import {
   Building2,
+  UserRound,
   Check,
   CircleCheck,
   Database,
@@ -29,6 +30,7 @@ import { kasaBalances, useStore, type Data } from "@/lib/store";
 import { cx, money, norm, nowIso, today } from "@/lib/format";
 import { downloadBlob } from "@/lib/print";
 import { apiFetch, useSync } from "@/lib/sync";
+import { ROLLER, rolBilgi, useProfil, useRol, type Profil, type Rol } from "@/lib/roles";
 import {
   AiError,
   MODELS,
@@ -94,17 +96,24 @@ function fixSeq(d: Partial<Data>): Partial<Data> {
 
 export default function AyarlarPage() {
   const firma = useStore((s) => s.settings.firma);
+  const rol = useRol();
+  const backend = useSync((s) => s.backend);
   return (
     <div>
-      <PageHeader title="Ayarlar" subtitle="Yapay zekâ, firma, kasalar, kategoriler ve yedekleme" actions={<LogoutButton />} />
+      <PageHeader title="Ayarlar" subtitle="Profil, yapay zekâ, firma ve yedekleme" actions={<LogoutButton />} />
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         <div className="space-y-5">
+          {backend ? <ProfileCard /> : null}
           <AiCard />
-          <FirmaCard key={firma} />
         </div>
         <div className="space-y-5">
-          <KasalarCard />
-          <KategorilerCard />
+          <FirmaCard key={firma} />
+          {rol === "osgb" ? (
+            <>
+              <KasalarCard />
+              <KategorilerCard />
+            </>
+          ) : null}
         </div>
         <DataCard />
       </div>
@@ -389,9 +398,9 @@ function FirmaCard() {
   }
 
   return (
-    <SettingsCard icon={Building2} title="Firma" sub="Raporlarda ve Excel çıktılarında görünen firma / OSGB adı.">
+    <SettingsCard icon={Building2} title="Firma / Kurum" sub="Raporlarda ve Excel çıktılarında görünen firma, OSGB ya da kurum adı.">
       <form onSubmit={save} className="flex flex-col gap-2.5 sm:flex-row sm:items-end">
-        <Field label="Firma / OSGB adı" className="flex-1">
+        <Field label="Firma / OSGB / kurum adı" className="flex-1">
           <Input value={val} onChange={(e) => setVal(e.target.value)} placeholder="Örn. Güven OSGB Ltd. Şti." maxLength={120} />
         </Field>
         <Button type="submit" icon={Check} disabled={!dirty}>
@@ -722,5 +731,113 @@ function LogoutButton() {
     >
       Çıkış yap{user ? <span className="font-semibold text-muted">· {user}</span> : null}
     </a>
+  );
+}
+
+// ---------------------------------------------------------------- Profil ve rol
+
+const HEDEF_SINAVLAR = ["C Sınıfı İSG Uzmanlığı", "B Sınıfı İSG Uzmanlığı", "A Sınıfı İSG Uzmanlığı", "İşyeri Hekimliği", "DSP (Diğer Sağlık Personeli)"];
+
+function ProfileCard() {
+  const rol = useRol();
+  const profil = useProfil();
+  const user = useSync((s) => s.user);
+  const [sel, setSel] = useState<Rol>(rol);
+  const [p, setP] = useState<Profil>(profil);
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof Profil) => (v: string) => setP((x) => ({ ...x, [k]: v }));
+
+  async function save(e?: FormEvent) {
+    e?.preventDefault();
+    if (sel !== rol) {
+      const ok = await confirmDialog({
+        title: "Rolü değiştir",
+        text: `Rolünüz “${rolBilgi(sel).ad}” olacak. Menüler ve ana sayfa buna göre değişir; kayıtlarınız silinmez.`,
+        okLabel: "Değiştir",
+      });
+      if (!ok) return;
+    }
+    setBusy(true);
+    try {
+      const r = await apiFetch("profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rol: sel, profil: p }) });
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { message?: string }).message || "Kaydedilemedi.");
+      const j = (await r.json()) as { rol: string; profil: Record<string, string> };
+      useSync.setState({ rol: j.rol, profil: j.profil, ad: j.profil.ad_soyad ?? null });
+      toast(sel !== rol ? `Rolünüz ${rolBilgi(sel).kisa} olarak değişti.` : "Profil kaydedildi.");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Kaydedilemedi.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <SettingsCard icon={UserRound} title="Profil ve Rol" sub={user ? `Hesap: ${user}` : undefined}>
+      <form onSubmit={save} className="space-y-3">
+        <FieldGroup label="Rol">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {ROLLER.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setSel(r.id)}
+                className={cx(
+                  "rounded-2xl border-2 px-3.5 py-2.5 text-left transition",
+                  sel === r.id ? "border-brand-blue bg-soft-blue" : "border-line bg-white hover:border-brand-blue/40",
+                )}
+              >
+                <span className="flex items-center gap-2 text-[13.5px] font-extrabold text-navy">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: r.renk }} />
+                  {r.ad}
+                </span>
+                <span className="mt-0.5 block text-[11.5px] leading-snug text-muted">{r.aciklama}</span>
+              </button>
+            ))}
+          </div>
+        </FieldGroup>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Ad soyad">
+            <Input value={p.ad_soyad ?? ""} onChange={(e) => set("ad_soyad")(e.target.value)} maxLength={80} />
+          </Field>
+          <Field label={sel === "ogrenci" ? "Kurs / okul" : sel === "hekim" ? "Kurum / OSGB / hastane" : "Firma / OSGB"}>
+            <Input value={p.kurum ?? ""} onChange={(e) => set("kurum")(e.target.value)} maxLength={120} />
+          </Field>
+          <Field label="İl">
+            <Input value={p.il ?? ""} onChange={(e) => set("il")(e.target.value)} maxLength={60} />
+          </Field>
+          {sel === "uzman" ? (
+            <FieldGroup label="Uzmanlık belgesi sınıfı">
+              <Chips
+                options={[
+                  { value: "A", label: "A" },
+                  { value: "B", label: "B" },
+                  { value: "C", label: "C" },
+                ]}
+                value={p.uzmanlik_sinifi ?? ""}
+                onChange={(v) => set("uzmanlik_sinifi")(v)}
+              />
+            </FieldGroup>
+          ) : null}
+          {sel === "ogrenci" ? (
+            <>
+              <Field label="Hazırlandığınız sınav">
+                <select className="field" value={p.hedef_sinav ?? ""} onChange={(e) => set("hedef_sinav")(e.target.value)}>
+                  <option value="">Seçin</option>
+                  {HEDEF_SINAVLAR.map((x) => (
+                    <option key={x}>{x}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Sınav tarihi">
+                <Input type="date" value={p.sinav_tarihi ?? ""} onChange={(e) => set("sinav_tarihi")(e.target.value)} />
+              </Field>
+            </>
+          ) : null}
+        </div>
+        <Button type="submit" icon={Check} loading={busy}>
+          {sel !== rol ? "Rolü değiştir ve kaydet" : "Profili kaydet"}
+        </Button>
+      </form>
+    </SettingsCard>
   );
 }

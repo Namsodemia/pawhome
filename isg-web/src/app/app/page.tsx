@@ -26,6 +26,8 @@ import {
 import { Card, Hero, HeroKicker, Section, Stat, Button } from "@/components/ui";
 import { toast } from "@/components/feedback";
 import dynamic from "next/dynamic";
+import { useRol } from "@/lib/roles";
+import { HekimDashboard, OgrenciDashboard, UzmanDashboard } from "./RoleDashboards";
 import { useStore, kasaBalances, monthSummary, kursiyerTotals, olayStats } from "@/lib/store";
 import { aiMode, subscribeAiConfig, type AiMode } from "@/lib/ai/client";
 import { useQuestionBank } from "@/lib/sinav";
@@ -38,6 +40,14 @@ const DashboardCharts = dynamic(() => import("./DashboardCharts").then((m) => m.
 });
 
 export default function Dashboard() {
+  const rol = useRol();
+  if (rol === "uzman") return <UzmanDashboard />;
+  if (rol === "hekim") return <HekimDashboard />;
+  if (rol === "ogrenci") return <OgrenciDashboard />;
+  return <OsgbDashboard />;
+}
+
+function OsgbDashboard() {
   const transactions = useStore((s) => s.transactions);
   const kasalar = useStore((s) => s.kasalar);
   const kursiyerler = useStore((s) => s.kursiyerler);

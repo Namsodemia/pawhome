@@ -14,10 +14,25 @@ import { get as idbGet, set as idbSet, del as idbDel } from "idb-keyval";
 
 export type SyncStatus = "loading" | "saved" | "saving" | "error" | "local" | "failed";
 
-export const useSync = create<{ status: SyncStatus; backend: boolean | null; user: string | null; message: string | null }>(() => ({
+export interface SyncInfo {
+  status: SyncStatus;
+  backend: boolean | null;
+  user: string | null;
+  /** Kullanıcının adı soyadı (kayıtta girilen) */
+  ad: string | null;
+  /** Kayıtta seçilen rol: osgb | uzman | hekim | ogrenci */
+  rol: string | null;
+  profil: Record<string, string> | null;
+  message: string | null;
+}
+
+export const useSync = create<SyncInfo>(() => ({
   status: "loading",
   backend: null,
   user: null,
+  ad: null,
+  rol: null,
+  profil: null,
   message: null,
 }));
 
@@ -179,10 +194,18 @@ export const serverStorage: StateStorage = {
       useSync.setState({ status: "failed", backend: true, message: msg });
       return null;
     }
-    const j = (await r.json()) as { rev: number; empty: boolean; user: string; state: Record<string, unknown> };
+    const j = (await r.json()) as {
+      rev: number;
+      empty: boolean;
+      user: string;
+      ad?: string;
+      rol?: string;
+      profil?: Record<string, string> | null;
+      state: Record<string, unknown>;
+    };
     mode = "server";
     baseRev = j.rev;
-    useSync.setState({ status: "saved", backend: true, user: j.user, message: null });
+    useSync.setState({ status: "saved", backend: true, user: j.user, ad: j.ad ?? null, rol: j.rol ?? null, profil: j.profil ?? null, message: null });
     if (j.empty) {
       lastSent = {};
       return null;

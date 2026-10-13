@@ -6,6 +6,7 @@ import { create } from "zustand";
 import { ArrowRight, MessagesSquare, Plus, Search, ShieldCheck, User, type LucideIcon } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { ALL_NAV } from "@/lib/nav";
+import { izinli, modulOf, useRol } from "@/lib/roles";
 import { cx, norm } from "@/lib/format";
 
 export const useCommandPalette = create<{ visible: boolean; open: () => void; close: () => void }>((set) => ({
@@ -31,6 +32,7 @@ const QUICK: Cmd[] = [
   { id: "q-olay", label: "Kaza / ramak kala kaydet", href: "/app/kaza?yeni=1", icon: Plus, color: "#D6334C", group: "Hızlı işlem" },
   { id: "q-den", label: "Saha denetimi başlat", href: "/app/denetim?yeni=1", icon: Plus, color: "#3AA466", group: "Hızlı işlem" },
   { id: "q-deneme", label: "25 soruluk deneme sınavı", href: "/app/sinav/deneme?n=25", icon: Plus, color: "#6C5CE7", group: "Hızlı işlem" },
+  { id: "q-muayene", label: "Periyodik muayene ekle", href: "/app/muayene?yeni=1", icon: Plus, color: "#D6334C", group: "Hızlı işlem" },
 ];
 
 export function CommandPalette() {
@@ -39,6 +41,7 @@ export function CommandPalette() {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const rol = useRol();
   const kursiyerler = useStore((s) => s.kursiyerler);
   const analyses = useStore((s) => s.analyses);
   const siniflar = useStore((s) => s.siniflar);
@@ -65,7 +68,8 @@ export function CommandPalette() {
 
   const results = useMemo(() => {
     const n = norm(q);
-    const pages: Cmd[] = ALL_NAV.map((p) => ({ id: p.href, label: p.label, href: p.href, icon: p.icon, color: p.color, group: "Sayfalar" }));
+    const ok = (c: Cmd) => izinli(rol, modulOf(c.href));
+    const pages: Cmd[] = ALL_NAV.filter((p) => izinli(rol, modulOf(p.href))).map((p) => ({ id: p.href, label: p.label, href: p.href, icon: p.icon, color: p.color, group: "Sayfalar" }));
     const data: Cmd[] = [
       ...kursiyerler
         .filter((k) => k.is_active)
@@ -89,10 +93,10 @@ export function CommandPalette() {
       })),
       ...siniflar.map((s) => ({ id: `s${s.id}`, label: s.ad, sub: s.aciklama, href: `/app/siniflar/detay/?id=${s.id}`, icon: MessagesSquare, color: s.renk, group: "Sınıflar" })),
     ];
-    if (!n) return [...QUICK, ...pages];
+    if (!n) return [...QUICK.filter(ok), ...pages];
     const match = (c: Cmd) => norm(`${c.label} ${c.sub || ""}`).includes(n);
-    return [...QUICK.filter(match), ...pages.filter(match), ...data.filter(match)].slice(0, 30);
-  }, [q, kursiyerler, analyses, siniflar]);
+    return [...QUICK.filter(ok).filter(match), ...pages.filter(match), ...data.filter(ok).filter(match)].slice(0, 30);
+  }, [q, kursiyerler, analyses, siniflar, rol]);
 
   const go = (c: Cmd | undefined) => {
     if (!c) return;

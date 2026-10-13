@@ -24,7 +24,9 @@ const ISGORA_COLLECTIONS = [
     'uyeler' => 'sinif_uyeleri',
     'mesajlar' => 'sinif_mesajlari',
     'chat' => 'asistan_mesajlari',
+    'muayeneler' => 'muayeneler',
 ];
+const ISGORA_ROLES = ['osgb', 'uzman', 'hekim', 'ogrenci'];
 const ISGORA_JSON = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION;
 const ISGORA_COOKIE = 'isgora_oturum';
 const ISGORA_SESSION_DAYS = 30;
@@ -90,6 +92,15 @@ function db(): PDO
     return $pdo;
 }
 
+function table_columns(PDO $db, string $table): array
+{
+    $cols = [];
+    foreach ($db->query("PRAGMA table_info($table)")->fetchAll() as $c) {
+        $cols[] = $c['name'];
+    }
+    return $cols;
+}
+
 function migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS ayarlar (anahtar TEXT PRIMARY KEY, deger TEXT)');
@@ -99,17 +110,100 @@ function migrate(PDO $db): void
         sifre_hash TEXT NOT NULL,
         olusturma TEXT NOT NULL
     )');
+    $db->exec('CREATE TABLE IF NOT EXISTS kullanici_ayarlar (
+        kullanici_id INTEGER NOT NULL,
+        anahtar TEXT NOT NULL,
+        deger TEXT,
+        PRIMARY KEY (kullanici_id, anahtar)
+    )');
     $db->exec('CREATE TABLE IF NOT EXISTS giris_denemeleri (ip TEXT NOT NULL, zaman INTEGER NOT NULL)');
     $db->exec('CREATE INDEX IF NOT EXISTS idx_giris_ip ON giris_denemeleri (ip, zaman)');
-    foreach (ISGORA_COLLECTIONS as $table) {
-        // Her kayıt kendi satırında; alanlar JSON olarak saklanır (mobil uygulamadaki tablolarla aynı alan adları)
-        $db->exec("CREATE TABLE IF NOT EXISTS $table (
-            id INTEGER PRIMARY KEY,
-            sira INTEGER NOT NULL,
-            veri TEXT NOT NULL,
-            guncelleme TEXT NOT NULL
-        )");
+    $db->exec('CREATE TABLE IF NOT EXISTS kayit_denemeleri (ip TEXT NOT NULL, zaman INTEGER NOT NULL)');
+
+    $version = (int) $db->query('PRAGMA user_version')->fetchColumn();
+    if ($version >= 2) {
+        foreach (ISGORA_COLLECTIONS as $table) {
+            create_collection_table($db, $table);
+        }
+        return;
     }
+
+    // v2: kullanıcı başına veri + rol/profil (tek kullanıcılı v1 verisi ilk kullanıcıya taşınır)
+    $db->exec('BEGIN IMMEDIATE');
+    try {
+        $ucols = table_columns($db, 'kullanicilar');
+        foreach (['eposta' => 'TEXT', 'ad_soyad' => 'TEXT', 'rol' => 'TEXT', 'profil' => 'TEXT', 'yonetici' => 'INTEGER NOT NULL DEFAULT 0'] as $col => $type) {
+            if (!in_array($col, $ucols, true)) {
+                $db->exec("ALTER TABLE kullanicilar ADD COLUMN $col $type");
+            }
+        }
+        $first = $db->query('SELECT id FROM kullanicilar ORDER BY id LIMIT 1')->fetchColumn();
+        $firstId = $first === false ? null : (int) $first;
+        if ($firstId !== null) {
+            $db->prepare("UPDATE kullanicilar SET yonetici = 1, rol = COALESCE(rol, 'osgb') WHERE id = ?")->execute([$firstId]);
+        }
+        foreach (ISGORA_COLLECTIONS as $table) {
+            $exists = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name=" . $db->quote($table))->fetchColumn();
+            if ($exists && !in_array('kullanici_id', table_columns($db, $table), true)) {
+                $db->exec("ALTER TABLE $table RENAME TO {$table}_v1");
+                create_collection_table($db, $table);
+                $owner = $firstId ?? 1;
+                $db->exec("INSERT INTO $table (kullanici_id, id, sira, veri, guncelleme) SELECT $owner, id, sira, veri, guncelleme FROM {$table}_v1");
+                $db->exec("DROP TABLE {$table}_v1");
+            } else {
+                create_collection_table($db, $table);
+            }
+        }
+        if ($firstId !== null) {
+            foreach (['rev', 'seq', 'settings', 'soru_bankasi', 'anthropic_api_key'] as $k) {
+                $st = $db->prepare('SELECT deger FROM ayarlar WHERE anahtar = ?');
+                $st->execute([$k]);
+                $v = $st->fetchColumn();
+                if ($v !== false) {
+                    $db->prepare('INSERT OR REPLACE INTO kullanici_ayarlar (kullanici_id, anahtar, deger) VALUES (?, ?, ?)')->execute([$firstId, $k, $v]);
+                    $db->prepare('DELETE FROM ayarlar WHERE anahtar = ?')->execute([$k]);
+                }
+            }
+        }
+        $db->exec('PRAGMA user_version = 2');
+        $db->exec('COMMIT');
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->exec('ROLLBACK');
+        }
+        throw $e;
+    }
+}
+
+function create_collection_table(PDO $db, string $table): void
+{
+    // Her kayıt kendi satırında; alanlar mobil uygulamadaki adlarla JSON olarak saklanır. Kullanıcı başına ayrı.
+    $db->exec("CREATE TABLE IF NOT EXISTS $table (
+        kullanici_id INTEGER NOT NULL,
+        id INTEGER NOT NULL,
+        sira INTEGER NOT NULL,
+        veri TEXT NOT NULL,
+        guncelleme TEXT NOT NULL,
+        PRIMARY KEY (kullanici_id, id)
+    )");
+}
+
+/** Kullanıcıya ait ayar (sürüm, sayaç, uygulama ayarları, soru bankası, API anahtarı) */
+function umeta_get(int $uid, string $key, ?string $default = null): ?string
+{
+    $st = db()->prepare('SELECT deger FROM kullanici_ayarlar WHERE kullanici_id = ? AND anahtar = ?');
+    $st->execute([$uid, $key]);
+    $v = $st->fetchColumn();
+    return $v === false ? $default : (string) $v;
+}
+
+function umeta_set(int $uid, string $key, ?string $value): void
+{
+    if ($value === null) {
+        db()->prepare('DELETE FROM kullanici_ayarlar WHERE kullanici_id = ? AND anahtar = ?')->execute([$uid, $key]);
+        return;
+    }
+    db()->prepare('INSERT OR REPLACE INTO kullanici_ayarlar (kullanici_id, anahtar, deger) VALUES (?, ?, ?)')->execute([$uid, $key, $value]);
 }
 
 function meta_get(string $key, ?string $default = null): ?string
@@ -222,7 +316,7 @@ function current_user(): ?array
     if (!is_array($data) || (int) ($data['e'] ?? 0) < time()) {
         return null;
     }
-    $st = db()->prepare('SELECT id, kullanici_adi, sifre_hash FROM kullanicilar WHERE id = ?');
+    $st = db()->prepare('SELECT id, kullanici_adi, sifre_hash, eposta, ad_soyad, rol, profil, yonetici FROM kullanicilar WHERE id = ?');
     $st->execute([(int) ($data['u'] ?? 0)]);
     $u = $st->fetch();
     if (!$u || !hash_equals(user_fingerprint($u), (string) ($data['f'] ?? ''))) {
@@ -260,6 +354,54 @@ function login_failed(): void
     db()->prepare('INSERT INTO giris_denemeleri (ip, zaman) VALUES (?, ?)')->execute([client_ip(), time()]);
 }
 
+/** Aynı IP'den saatte en fazla 5 yeni hesap */
+function register_blocked(): bool
+{
+    $db = db();
+    $db->prepare('DELETE FROM kayit_denemeleri WHERE zaman < ?')->execute([time() - 86400]);
+    $st = $db->prepare('SELECT COUNT(*) FROM kayit_denemeleri WHERE ip = ? AND zaman > ?');
+    $st->execute([client_ip(), time() - 3600]);
+    return (int) $st->fetchColumn() >= 5;
+}
+
+function register_mark(): void
+{
+    db()->prepare('INSERT INTO kayit_denemeleri (ip, zaman) VALUES (?, ?)')->execute([client_ip(), time()]);
+}
+
+function user_role(array $u): string
+{
+    $r = (string) ($u['rol'] ?? '');
+    return in_array($r, ISGORA_ROLES, true) ? $r : 'osgb';
+}
+
+function user_profile(array $u): array
+{
+    $p = json_decode((string) ($u['profil'] ?? ''), true);
+    return is_array($p) ? $p : [];
+}
+
+/** Profil alanlarını beyaz listeyle temizler */
+function clean_profile(array $in): array
+{
+    $out = [];
+    foreach (['ad_soyad' => 80, 'kurum' => 120, 'il' => 60, 'uzmanlik_sinifi' => 2, 'hedef_sinav' => 40, 'sinav_tarihi' => 10] as $k => $max) {
+        if (!isset($in[$k])) {
+            continue;
+        }
+        $v = trim((string) $in[$k]);
+        $v = function_exists('mb_substr') ? mb_substr($v, 0, $max) : substr($v, 0, $max);
+        if ($k === 'uzmanlik_sinifi' && !in_array($v, ['A', 'B', 'C', ''], true)) {
+            $v = '';
+        }
+        if ($k === 'sinav_tarihi' && $v !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) {
+            $v = '';
+        }
+        $out[$k] = $v;
+    }
+    return $out;
+}
+
 function login_ok(): void
 {
     db()->prepare('DELETE FROM giris_denemeleri WHERE ip = ?')->execute([client_ip()]);
@@ -267,11 +409,12 @@ function login_ok(): void
 
 // ---------------------------------------------------------------- yapay zekâ
 
-function server_ai_key(): string
+/** Önce kullanıcının kendi kaydettiği anahtar, yoksa config.php'deki ortak anahtar */
+function server_ai_key(int $uid): string
 {
-    $k = trim((string) (cfg()['anthropic_api_key'] ?? ''));
+    $k = trim((string) umeta_get($uid, 'anthropic_api_key', ''));
     if ($k !== '') {
         return $k;
     }
-    return trim((string) meta_get('anthropic_api_key', ''));
+    return trim((string) (cfg()['anthropic_api_key'] ?? ''));
 }

@@ -32,6 +32,9 @@ import {
   useStore,
 } from "@/lib/store";
 import { money, thisMonth, today } from "@/lib/format";
+import { currentRol, type Rol } from "@/lib/roles";
+import { useSync } from "@/lib/sync";
+import { DERSLER } from "@/data/sorular";
 
 // ---------------------------------------------------------------- Sistem istemi (sabit — önbelleğe alınır)
 
@@ -42,6 +45,47 @@ export const SYSTEM_PROMPT =
   "Kısa, net, Türkçe ve TDK imlasına uygun yaz. Para tutarlarını ₺ ile ve binlik ayraçla yaz. " +
   "Eksik bilgi varsa (tutar, kişi adı gibi) tahmin etme, SOR. Araç çağırdığında işlem hemen yapılmaz; uygulama kullanıcıdan onay ister. " +
   "Birden fazla kayıt verildiyse toplu araçları kullan. İSG mevzuatı (6331, risk değerlendirme yönetmeliği, 5x5 matris) hakkında da uzman yardımı ver.";
+
+const ORTAK_KURAL =
+  'Uydurma yapma; veride yoksa "veride yok" de. Kısa, net, Türkçe ve TDK imlasına uygun yaz. ' +
+  "Mevzuattaki süre, sayı ve oranları (6331 sayılı Kanun ve yönetmelikler) doğru ver; emin olmadığın yerde güncel Resmî Gazete metnine bakılmasını öner.";
+
+/** Role göre sabit sistem istemi (her rol için ayrı önbelleğe alınır). OSGB, mobil uygulamadaki istemin aynısıdır. */
+export function systemPromptFor(rol: Rol): string {
+  switch (rol) {
+    case "uzman":
+      return (
+        "Sen İsgora uygulamasının asistanısın. Kullanıcı bir iş güvenliği uzmanıdır. " +
+        "Görevlerin: risk değerlendirmesi (5x5 L tipi matris, Fine-Kinney karşılaştırması), saha denetimi, iş kazası / ramak kala araştırması " +
+        "(kök neden, 5 Neden, balık kılçığı), düzeltici-önleyici faaliyetler, eğitim planlaması ve İSG mevzuatı konularında uzman desteği vermek; " +
+        "soruları CANLI VERİYE (risk analizleri, olaylar, denetimler) dayanarak yanıtlamak. " +
+        ORTAK_KURAL
+      );
+    case "hekim":
+      return (
+        "Sen İsgora uygulamasının asistanısın. Kullanıcı bir işyeri hekimidir. " +
+        "Görevlerin: sağlık gözetimi, işe giriş ve periyodik muayeneler (tehlike sınıfına göre periyotlar), meslek hastalıkları ve bildirimi, " +
+        "iş kazası sonrası süreçler, ilk yardım, işe dönüş değerlendirmesi, tetkik planlaması (odyometri, SFT, akciğer grafisi vb.) ve İSG mevzuatı " +
+        "konularında destek vermek; soruları CANLI VERİYE (muayene kayıtları, olaylar) dayanarak yanıtlamak. " +
+        "Bireysel hasta için kesin tanı koyma; klinik kararın hekime ait olduğunu hatırlat. " +
+        ORTAK_KURAL
+      );
+    case "ogrenci":
+      return (
+        "Sen İsgora uygulamasının asistanısın. Kullanıcı İSG uzmanlığı / işyeri hekimliği sınavına hazırlanan bir öğrencidir. " +
+        "Bir öğretmen gibi davran: konuları sade ve örnekli anlat, maddeler hâlinde özetle, ezberlenmesi gereken süre ve sayıları tablo hâlinde ver, " +
+        "istenirse çoktan seçmeli örnek sorular sor ve cevabı açıklamalı düzelt. CANLI VERİDEKİ deneme sonuçlarına göre zayıf konulara odaklan. " +
+        ORTAK_KURAL
+      );
+    default:
+      return SYSTEM_PROMPT;
+  }
+}
+
+/** Kayıt giren araçlar yalnızca OSGB rolünde (kasa / kursiyer) açıktır. */
+export function toolsFor(rol: Rol): BetaTool[] {
+  return rol === "osgb" ? TOOLS : [];
+}
 
 // ---------------------------------------------------------------- Araçlar (strict JSON şema)
 
@@ -210,8 +254,110 @@ export const FIELD_LABELS: Record<string, string> = {
 
 // ---------------------------------------------------------------- Canlı veri özeti
 
-/** Her istekte yeniden üretilen canlı özet (KasaCari ai_data_snapshot karşılığı). */
-export function snapshot(): string {
+/** Her istekte yeniden üretilen canlı özet — role göre ilgili veriler. */
+export function snapshot(rol: Rol = currentRol()): string {
+  if (rol === "uzman") return snapshotUzman();
+  if (rol === "hekim") return snapshotHekim();
+  if (rol === "ogrenci") return snapshotOgrenci();
+  return snapshotOsgb();
+}
+
+function riskLine(): string {
+  const s = useStore.getState();
+  const analyses = [...s.analyses].sort((a, b) => b.id - a.id);
+  return (
+    `Risk analizleri: ${analyses.length} adet` +
+    (analyses.length
+      ? " — " +
+        analyses
+          .slice(0, 8)
+          .map((a) => {
+            const sum = analysisSummary(s.riskRows, a.id);
+            return `${a.title} (${a.hazard_class}, ${sum.rows} madde, en yüksek skor ${sum.rows ? sum.max : "-"})`;
+          })
+          .join("; ")
+      : "")
+  );
+}
+
+function olayLines(): string[] {
+  const s = useStore.getState();
+  const os = olayStats(s.olaylar);
+  const out = [
+    `İSG olay kayıtları: ${s.olaylar.length} adet (iş kazası ${os.kaza}, ramak kala ${os.ramak}, meslek hastalığı şüphesi ${
+      s.olaylar.filter((o) => o.tur === "meslek_hastaligi").length
+    }, kayıp iş günü ${os.kayip_gun}, SGK'ya bildirilmemiş kaza ${os.bildirilmemis})`,
+  ];
+  const son = [...s.olaylar].sort((a, b) => (b.tarih + b.id).localeCompare(a.tarih + a.id)).slice(0, 5);
+  if (son.length) out.push("Son olaylar: " + son.map((o) => `${o.tarih} ${o.tur} ${o.isyeri || ""}: ${o.aciklama.slice(0, 90)}`).join(" | "));
+  return out;
+}
+
+function profilLine(): string | null {
+  const p = (useSync.getState().profil ?? {}) as Record<string, string>;
+  const parts = [p.ad_soyad, p.kurum, p.il, p.uzmanlik_sinifi ? `${p.uzmanlik_sinifi} sınıfı` : "", p.hedef_sinav ? `hedef: ${p.hedef_sinav}` : "", p.sinav_tarihi ? `sınav tarihi ${p.sinav_tarihi}` : ""].filter(Boolean);
+  return parts.length ? `Kullanıcı: ${parts.join(", ")}` : null;
+}
+
+function snapshotUzman(): string {
+  const s = useStore.getState();
+  const lines = [`Bugün: ${today()}`];
+  const pl = profilLine();
+  if (pl) lines.push(pl);
+  lines.push(riskLine());
+  const kritik = s.riskRows.filter((r) => r.o * r.s >= 20).length;
+  const yuksek = s.riskRows.filter((r) => r.o * r.s >= 15 && r.o * r.s < 20).length;
+  lines.push(`Risk maddeleri: toplam ${s.riskRows.length}, kabul edilemez ${kritik}, yüksek ${yuksek}`);
+  lines.push(...olayLines());
+  if (s.denetimler.length) {
+    const ort = Math.round(s.denetimler.reduce((a, d) => a + d.puan, 0) / s.denetimler.length);
+    const son = [...s.denetimler].sort((a, b) => b.id - a.id).slice(0, 3);
+    lines.push(`Saha denetimleri: ${s.denetimler.length} adet, ortalama uygunluk %${ort}; son: ${son.map((d) => `${d.isyeri} ${d.tarih} %${d.puan}`).join("; ")}`);
+  } else lines.push("Saha denetimi kaydı yok");
+  return lines.join("\n");
+}
+
+function snapshotHekim(): string {
+  const s = useStore.getState();
+  const t = today();
+  const lines = [`Bugün: ${t}`];
+  const pl = profilLine();
+  if (pl) lines.push(pl);
+  const m = s.muayeneler;
+  const geciken = m.filter((x) => x.sonraki && x.sonraki < t).sort((a, b) => a.sonraki.localeCompare(b.sonraki));
+  const in30 = new Date();
+  in30.setDate(in30.getDate() + 30);
+  const sinir = in30.toISOString().slice(0, 10);
+  const yaklasan = m.filter((x) => x.sonraki && x.sonraki >= t && x.sonraki <= sinir);
+  lines.push(`Muayene kayıtları: ${m.length} çalışan; gecikmiş ${geciken.length}, 30 gün içinde ${yaklasan.length}, kısıtlı/çalışamaz ${m.filter((x) => x.sonuc !== "calisabilir").length}`);
+  if (geciken.length) lines.push("Gecikenler: " + geciken.slice(0, 12).map((x) => `${x.calisan} (${x.isyeri}, ${x.sonraki})`).join("; "));
+  if (yaklasan.length) lines.push("Yaklaşanlar: " + yaklasan.slice(0, 12).map((x) => `${x.calisan} (${x.isyeri}, ${x.sonraki})`).join("; "));
+  lines.push(...olayLines());
+  lines.push(riskLine());
+  return lines.join("\n");
+}
+
+function snapshotOgrenci(): string {
+  const s = useStore.getState();
+  const lines = [`Bugün: ${today()}`];
+  const pl = profilLine();
+  if (pl) lines.push(pl);
+  const res = [...s.sinavSonuclari].sort((a, b) => b.id - a.id);
+  const pct = (r: { dogru: number; toplam: number }) => (r.toplam ? Math.round((r.dogru * 100) / r.toplam) : 0);
+  if (!res.length) lines.push("Henüz deneme / test sonucu yok");
+  else {
+    const son5 = res.slice(0, 5);
+    lines.push(`Deneme / test sonuçları: ${res.length} adet; son 5 ortalama %${Math.round(son5.reduce((a, r) => a + pct(r), 0) / son5.length)}`);
+    const best = new Map<number, number>();
+    for (const r of res) if (r.ders_sira != null) best.set(r.ders_sira, Math.max(best.get(r.ders_sira) ?? 0, pct(r)));
+    const ad = (n: number) => DERSLER.find((d) => d.sira === n)?.ad ?? `Ders ${n}`;
+    const zayif = [...best.entries()].sort((a, b) => a[1] - b[1]).slice(0, 5);
+    if (zayif.length) lines.push("En zayıf dersler (en iyi puan): " + zayif.map(([n, p]) => `${ad(n)} %${p}`).join("; "));
+  }
+  return lines.join("\n");
+}
+
+function snapshotOsgb(): string {
   const s = useStore.getState();
   const bal = kasaBalances(s);
   const kasalar = s.kasalar.filter((k) => k.is_active);
@@ -341,12 +487,13 @@ export interface CallOpts {
 /** Tek bir Messages API çağrısı (akışlı). Aynı tur içinde system/tools/model sabit kalmalıdır. */
 export async function callAssistant(messages: BetaMessageParam[], opts: CallOpts): Promise<BetaMessage> {
   const c = await client();
+  const rol = currentRol();
   const stream = c.beta.messages.stream(
     {
       model: opts.model,
       max_tokens: 16000,
-      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-      tools: TOOLS,
+      system: [{ type: "text", text: systemPromptFor(rol), cache_control: { type: "ephemeral" } }],
+      ...(toolsFor(rol).length ? { tools: toolsFor(rol) } : {}),
       messages,
       output_config: { effort: opts.effort },
       ...fallbackParams(opts.model),

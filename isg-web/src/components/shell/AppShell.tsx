@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { CircleAlert, CloudCheck, Command, HardDrive, LoaderCircle, LogOut, Search, Settings } from "lucide-react";
-import { Logo } from "@/components/ui";
+import { CircleAlert, CloudCheck, Command, HardDrive, Lock, LoaderCircle, LogOut, Search, Settings } from "lucide-react";
+import { ButtonLink, Logo } from "@/components/ui";
+import { toast } from "@/components/feedback";
 import { FeedbackHost } from "@/components/feedback";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
-import { NAV_GROUPS, SETTINGS_ITEM, TABS, isActive, titleFor } from "@/lib/nav";
+import { SETTINGS_ITEM, isActive, navFor, tabsFor, titleFor } from "@/lib/nav";
+import { izinli, modulOf, rolBilgi, useProfil, useRol } from "@/lib/roles";
+import { useStore } from "@/lib/store";
 import { useHydrated } from "@/lib/hydrate";
 import { useSync } from "@/lib/sync";
 import { cx, longDateTR } from "@/lib/format";
@@ -18,6 +21,24 @@ export function AppShell({ children }: { children: ReactNode }) {
   const openPalette = useCommandPalette((s) => s.open);
   const [date, setDate] = useState("");
   useEffect(() => setDate(longDateTR()), []);
+  const rol = useRol();
+  const profil = useProfil();
+  const groups = navFor(rol);
+  const tabs = tabsFor(rol);
+  const allowed = izinli(rol, modulOf(pathname));
+
+  // Kayıtta girilen kurum adını firma ayarına aktar; kayıttan sonra hoş geldin mesajı
+  useEffect(() => {
+    if (!hydrated) return;
+    const st = useStore.getState();
+    if (profil.kurum && !st.settings.firma) st.setSettings({ firma: profil.kurum });
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("hosgeldin") === "1") {
+      toast(`Hoş geldiniz${profil.ad_soyad ? `, ${profil.ad_soyad.split(" ")[0]}` : ""}! ${rolBilgi(rol).kisa} ekranlarınız hazır.`);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    // yalnızca veriler yüklendiğinde
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   return (
     <div className="min-h-screen bg-paper">
@@ -37,7 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </span>
         </button>
         <nav className="mt-3 flex-1 overflow-y-auto px-3 pb-4">
-          {NAV_GROUPS.map((g) => (
+          {groups.map((g) => (
             <div key={g.group} className="mt-4">
               <div className="px-3 pb-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[#9AA6B2]">{g.group}</div>
               {g.items.map((n) => {
@@ -116,15 +137,15 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <main className="mx-auto max-w-6xl px-4 pb-36 pt-5 md:px-6 lg:px-8 lg:pb-20">
           <SyncBanner />
-          {hydrated ? <div className="animate-fade-in">{children}</div> : <ShellSkeleton />}
+          {!hydrated ? <ShellSkeleton /> : allowed ? <div className="animate-fade-in">{children}</div> : <NotInRole rolAd={rolBilgi(rol).ad} />}
           <footer className="mt-12 text-center text-[12px] text-[#9AA6B2]">İsgora · İş Sağlığı ve Güvenliği App</footer>
         </main>
       </div>
 
       {/* Mobil yüzen sekme çubuğu */}
       <nav className="no-print fixed inset-x-3.5 bottom-3.5 z-40 rounded-[24px] border border-line/60 bg-white/95 shadow-bar backdrop-blur pb-safe lg:hidden">
-        <div className="grid h-[68px] grid-cols-6">
-          {TABS.map((t) => {
+        <div className="grid h-[68px]" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+          {tabs.map((t) => {
             const active = isActive(pathname, t.href);
             const Icon = t.icon;
             return (
@@ -212,5 +233,28 @@ function SidebarUser() {
       </span>
       <span className="min-w-0 flex-1 truncate">Çıkış yap{user ? <span className="block truncate text-[11px] font-semibold text-muted">{user}</span> : null}</span>
     </a>
+  );
+}
+
+/** Rolüne kapalı bir modül adresi açılırsa */
+function NotInRole({ rolAd }: { rolAd: string }) {
+  return (
+    <div className="mx-auto mt-10 max-w-md rounded-xl3 border border-line bg-white p-7 text-center shadow-card">
+      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brandSoft text-brand-blue">
+        <Lock size={24} />
+      </span>
+      <div className="mt-3 text-[17px] font-extrabold text-navy">Bu ekran rolünüzde yok</div>
+      <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">
+        Hesabınız <b className="text-navy">{rolAd}</b> rolünde. Bu modülü kullanmak için Ayarlar&apos;dan rolünüzü değiştirebilirsiniz.
+      </p>
+      <div className="mt-5 flex justify-center gap-2">
+        <ButtonLink href="/app/" kind="ghost" small>
+          Ana sayfa
+        </ButtonLink>
+        <ButtonLink href="/app/ayarlar/" small>
+          Rolü değiştir
+        </ButtonLink>
+      </div>
+    </div>
   );
 }

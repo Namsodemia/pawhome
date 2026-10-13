@@ -16,6 +16,9 @@ import {
   Users,
   Wallet,
   WandSparkles,
+  Stethoscope,
+  HardHat,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -82,6 +85,37 @@ const FEATURES: { icon: LucideIcon; color: string; title: string; text: string }
   },
 ];
 
+const ROL_KARTLARI: { id: string; title: string; icon: LucideIcon; color: string; items: string[] }[] = [
+  {
+    id: "osgb",
+    title: "OSGB / Eğitim Kurumu",
+    icon: Building2,
+    color: "#107398",
+    items: ["Risk analizi ve raporlar", "Kasa / cari, kursiyer takibi", "Sınıflar ve toplu duyuru", "Muayene, denetim, kaza kayıtları"],
+  },
+  {
+    id: "uzman",
+    title: "İş Güvenliği Uzmanı",
+    icon: HardHat,
+    color: "#3AA466",
+    items: ["Yapay zekâ ile 5x5 risk analizi", "Saha denetimi ve PDF rapor", "Kaza / ramak kala, SGK süresi", "Mevzuat ve hesaplayıcı"],
+  },
+  {
+    id: "hekim",
+    title: "İşyeri Hekimi / Doktor",
+    icon: Stethoscope,
+    color: "#D6334C",
+    items: ["Periyodik muayene takibi", "Geciken / yaklaşan muayeneler", "Meslek hastalığı kayıtları", "Tetkik ve mevzuat asistanı"],
+  },
+  {
+    id: "ogrenci",
+    title: "Öğrenci / Uzman Adayı",
+    icon: GraduationCap,
+    color: "#6C5CE7",
+    items: ["Ders bazında ön / son test", "25–50 soruluk denemeler", "Zayıf konu analizi", "Öğretmen gibi yapay zekâ asistanı"],
+  },
+];
+
 const MATRIX_COLORS = (o: number, s: number) => {
   const sc = o * s;
   if (sc >= 20) return "#D6334C";
@@ -99,6 +133,9 @@ export default function Landing() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-horizontal.png" alt="İsgora" className="h-8 w-auto" />
           <nav className="ml-6 hidden items-center gap-6 text-[14px] font-semibold text-muted md:flex">
+            <a href="#roller" className="hover:text-navy">
+              Kimler için
+            </a>
             <a href="#ozellikler" className="hover:text-navy">
               Özellikler
             </a>
@@ -135,10 +172,10 @@ export default function Landing() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                href="/app"
+                href="/giris.php?kayit=1"
                 className="inline-flex h-12 items-center gap-2 rounded-2xl bg-brand px-6 text-[15px] font-extrabold text-white shadow-fab transition hover:brightness-105"
               >
-                Uygulamayı aç <ArrowRight size={18} />
+                Ücretsiz kayıt ol <ArrowRight size={18} />
               </Link>
               <Link
                 href="/giris.php"
@@ -209,6 +246,45 @@ export default function Landing() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Kimler için */}
+      <section id="roller" className="py-20">
+        <div className="mx-auto max-w-6xl px-4 md:px-6">
+          <div className="section-label">Kimler için?</div>
+          <h2 className="mt-3 max-w-2xl text-[30px] font-extrabold tracking-tight text-navy md:text-[38px]">Rolünüzü seçin, ekranlar size göre gelsin</h2>
+          <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-muted">
+            Kayıt olurken seçtiğiniz role göre ana sayfanız, menüleriniz ve yapay zekâ asistanınız hazırlanır. Her hesabın verisi kendine aittir.
+          </p>
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {ROL_KARTLARI.map((r) => {
+              const Icon = r.icon;
+              return (
+                <a
+                  key={r.id}
+                  href={`/giris.php?kayit=1&rol=${r.id}`}
+                  className="group flex flex-col rounded-xl2 border border-line/70 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-bar"
+                >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl text-white" style={{ background: r.color }}>
+                    <Icon size={21} />
+                  </span>
+                  <div className="mt-4 text-[16.5px] font-extrabold text-navy">{r.title}</div>
+                  <ul className="mt-2 flex-1 space-y-1.5 text-[13.5px] text-muted">
+                    {r.items.map((it) => (
+                      <li key={it} className="flex gap-2">
+                        <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: r.color }} />
+                        {it}
+                      </li>
+                    ))}
+                  </ul>
+                  <span className="mt-4 inline-flex items-center gap-1.5 text-[13.5px] font-extrabold text-brand-blue">
+                    Bu rolle kayıt ol <ArrowRight size={15} className="transition group-hover:translate-x-0.5" />
+                  </span>
+                </a>
+              );
+            })}
           </div>
         </div>
       </section>
