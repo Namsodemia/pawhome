@@ -50,7 +50,7 @@ Varsayılan model **Claude Opus 5.5**; Ayarlar'dan Sonnet 5.5 veya Haiku 5.5 se�
 
 ## cPanel'e yükleme
 
-1. `npm install && npm run build` → `out/` klasörü oluşur (hazır paket: `out/` içeriğinin zip'i).
+1. `npm install && npm run build && npm run package` → `isgora-site.zip` (dosyalar 644, klasörler 755 izinli).
 2. cPanel → **Dosya Yöneticisi** → alan adının **Document Root** klasörü (ör. `isgora.com/`).
 3. Zip'i yükleyin → sağ tık → **Extract**. `index.html`, `giris.php`, `api/`, `_next/`, `.htaccess` doğrudan bu klasörde olmalı.
 4. `https://alanadiniz/giris.php` → ilk hesabı (yönetici) oluşturun. Diğer kullanıcılar `giris.php?kayit=1` adresinden rol seçerek kayıt olur.

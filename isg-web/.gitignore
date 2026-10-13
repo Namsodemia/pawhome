@@ -10,3 +10,6 @@ next-env.d.ts
 # PHP çalışma zamanı dosyaları
 public/data/*.sqlite*
 public/data/config.local.php
+
+# cPanel paketi
+isgora-site.zip
