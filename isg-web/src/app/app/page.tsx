@@ -26,7 +26,7 @@ import {
 import { Card, Hero, HeroKicker, Section, Stat, Button } from "@/components/ui";
 import { toast } from "@/components/feedback";
 import dynamic from "next/dynamic";
-import { useRol } from "@/lib/roles";
+import { useProfil, useRol } from "@/lib/roles";
 import { HekimDashboard, OgrenciDashboard, UzmanDashboard } from "./RoleDashboards";
 import { useStore, kasaBalances, monthSummary, kursiyerTotals, olayStats } from "@/lib/store";
 import { aiMode, subscribeAiConfig, type AiMode } from "@/lib/ai/client";
@@ -48,6 +48,7 @@ export default function Dashboard() {
 }
 
 function OsgbDashboard() {
+  const ad = (useProfil().ad_soyad || "").split(" ")[0];
   const transactions = useStore((s) => s.transactions);
   const kasalar = useStore((s) => s.kasalar);
   const kursiyerler = useStore((s) => s.kursiyerler);
@@ -126,7 +127,8 @@ function OsgbDashboard() {
     <div>
       <div className="mb-5">
         <h1 className="text-[26px] font-extrabold tracking-tight text-navy md:text-[30px]">
-          {hello.g} <span aria-hidden>👋</span>
+          {hello.g}
+          {ad ? `, ${ad}` : ""} <span aria-hidden>👋</span>
         </h1>
         <div className="text-[14px] capitalize text-muted">{hello.d}</div>
       </div>

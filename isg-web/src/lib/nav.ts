@@ -43,11 +43,11 @@ export const NAV_GROUPS: { group: string; items: NavItem[] }[] = [
   {
     group: "İSG Araçları",
     items: [
-      { href: "/app/mevzuat", label: "Mevzuat Rehberi", icon: BookOpen, color: "#1E3145" },
-      { href: "/app/kaza", label: "Kaza / Ramak Kala", icon: Siren, color: "#D6334C" },
-      { href: "/app/denetim", label: "Saha Denetimi", icon: ClipboardCheck, color: "#3AA466" },
+      { href: "/app/mevzuat", label: "Mevzuat Rehberi", short: "Mevzuat", icon: BookOpen, color: "#1E3145" },
+      { href: "/app/kaza", label: "Kaza / Ramak Kala", short: "Kaza", icon: Siren, color: "#D6334C" },
+      { href: "/app/denetim", label: "Saha Denetimi", short: "Denetim", icon: ClipboardCheck, color: "#3AA466" },
       { href: "/app/muayene", label: "Periyodik Muayene", short: "Muayene", icon: Stethoscope, color: "#D6334C" },
-      { href: "/app/hesap", label: "İSG Hesaplayıcı", icon: Calculator, color: "#F4772E" },
+      { href: "/app/hesap", label: "İSG Hesaplayıcı", short: "Hesap", icon: Calculator, color: "#F4772E" },
     ],
   },
 ];

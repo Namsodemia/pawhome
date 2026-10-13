@@ -153,7 +153,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className={cx("flex h-8 w-11 items-center justify-center rounded-xl transition", active ? "bg-soft-blue text-brand-blue" : "text-[#8A97A6]")}>
                   <Icon size={20} strokeWidth={active ? 2.6 : 2} />
                 </span>
-                <span className={cx("text-[10.5px] font-bold", active ? "text-brand-blue" : "text-[#8A97A6]")}>{t.short}</span>
+                <span className={cx("text-[10.5px] font-bold", active ? "text-brand-blue" : "text-[#8A97A6]")}>{t.short ?? t.label}</span>
               </Link>
             );
           })}

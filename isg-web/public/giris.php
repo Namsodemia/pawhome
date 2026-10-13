@@ -364,7 +364,17 @@ $v = function (string $k) {
           inp.disabled = !!box && !box.classList.contains('r-' + r);
         });
       }
-      cards.forEach(function (c) { c.addEventListener('change', function () { sync(); var a = document.getElementById('ad_soyad'); if (a && !a.value) setTimeout(function () { a.focus(); }, 50); }); });
+      cards.forEach(function (c) {
+        c.addEventListener('change', function () {
+          sync();
+          var a = document.getElementById('ad_soyad');
+          setTimeout(function () {
+            var el = document.activeElement;
+            // Kullanıcı başka bir alana geçmediyse ad soyad alanına odaklan
+            if (a && !a.value && (!el || el === document.body || el.name === 'rol')) a.focus();
+          }, 50);
+        });
+      });
       sync();
     })();
   </script>

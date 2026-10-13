@@ -1,6 +1,7 @@
 import type { Data } from "./store";
-import type { Analysis, Kursiyer, Olay, RiskRow, Trx, Uye, Mesaj, Denetim, Cevap } from "./types";
+import type { Analysis, Kursiyer, Olay, RiskRow, Trx, Uye, Mesaj, Denetim, Cevap, HazardClass, Muayene, MuayeneSonuc, MuayeneTur } from "./types";
 import { nowIso } from "./format";
+import { sonrakiTarih } from "./muayene";
 
 function daysAgo(n: number): string {
   const d = new Date();
@@ -230,6 +231,44 @@ export function buildDemoData(cur: Data): { data: Data; kursiyerIds: number[] } 
     ["Ödev: 6331 sayılı Kanun'un 4. maddesini (işverenin genel yükümlülüğü) özetleyiniz.", "not", 0],
   ];
   for (const [metin, kanal, alici] of mesajlar) d.mesajlar.push({ id: id(), sinif_id: sid, metin, kanal, alici_sayisi: alici, created_at: nowIso() });
+
+  // periyodik muayene (işyeri hekimi) — gecikmiş, yaklaşan ve güncel karışık; sonraki tarih tehlike sınıfı periyodundan
+  const DEMIREL = "Demirel Otomotiv San. Tic. Ltd. Şti.";
+  const AKDENIZ = "Akdeniz İnşaat — Şantiye 2";
+  const LEZZET = "Lezzet Durağı Restoran";
+  const muayeneSpec: Array<[string, string, string, HazardClass, MuayeneTur, number, MuayeneSonuc, string[], string]> = [
+    // çalışan, işyeri, görev, tehlike sınıfı, tür, kaç gün önce, sonuç, tetkikler, notlar
+    ["Hasan Koç", AKDENIZ, "Kalıpçı", "ÇOK TEHLİKELİ", "periyodik", 392, "calisabilir", ["Odyometri", "SFT (solunum fonksiyon testi)", "Akciğer grafisi", "Tam kan sayımı"], ""],
+    ["İbrahim Yıldız", AKDENIZ, "İskele montajcısı (yüksekte çalışma)", "ÇOK TEHLİKELİ", "periyodik", 352, "calisabilir", ["Göz muayenesi", "EKG", "Tam kan sayımı", "Psikoteknik"], "Yüksekte çalışmasına engel bir durum saptanmadı."],
+    ["Ramazan Aksoy", AKDENIZ, "Kaynakçı", "ÇOK TEHLİKELİ", "ise_giris", 40, "calisabilir", ["SFT (solunum fonksiyon testi)", "Akciğer grafisi", "Göz muayenesi", "Tetanoz aşısı"], ""],
+    ["Gökhan Er", AKDENIZ, "Vinç operatörü", "ÇOK TEHLİKELİ", "gorev_degisikligi", 20, "calisamaz", ["EKG", "Göz muayenesi", "Psikoteknik", "Biyokimya"], "Kan basıncı kontrol altında değil (170/105 mmHg). Tedavisi düzenlenip yeniden değerlendirilene kadar vinç operatörlüğü yapamaz."],
+    ["Mustafa Demir", DEMIREL, "Boyacı (boya kabini)", "TEHLİKELİ", "periyodik", 1110, "kisitli", ["SFT (solunum fonksiyon testi)", "Akciğer grafisi", "Tam kan sayımı", "Biyokimya"], "SFT'de hafif obstrüksiyon. Boya kabininde yalnızca tam yüz gaz maskesiyle çalışabilir; 6 ay sonra kontrol SFT."],
+    ["Serkan Uçar", DEMIREL, "Akü ve oto elektrik ustası", "TEHLİKELİ", "periyodik", 1078, "calisabilir", ["Kan kurşun düzeyi", "Tam kan sayımı", "Biyokimya", "Odyometri"], ""],
+    ["Mustafa Doğan", DEMIREL, "Lift / mekanik ustası", "TEHLİKELİ", "ise_donus", 60, "kisitli", ["Tam kan sayımı"], "Bel fıtığı ameliyatı sonrası işe dönüş. 3 ay süreyle 15 kg üzeri yük kaldırmamalı."],
+    ["Emine Kurt", LEZZET, "Aşçı", "AZ TEHLİKELİ", "ise_giris", 2230, "calisabilir", ["Tam kan sayımı", "Hepatit markerları"], ""],
+    ["Emine Kurt", LEZZET, "Aşçı", "AZ TEHLİKELİ", "periyodik", 400, "calisabilir", ["Tam kan sayımı", "Hepatit markerları"], ""],
+    ["Yusuf Arslan", LEZZET, "Motokurye", "AZ TEHLİKELİ", "ise_giris", 1815, "calisabilir", ["Göz muayenesi", "Psikoteknik"], ""],
+  ];
+  if (!Array.isArray(d.muayeneler)) d.muayeneler = []; // eski yedeklerde koleksiyon olmayabilir
+  for (const [calisan, isyeri, gorev, hazard_class, tur, ago, sonuc, tetkikler, notlar] of muayeneSpec) {
+    const tarih = daysAgo(ago);
+    const m: Muayene = {
+      id: id(),
+      calisan,
+      tc: "",
+      isyeri,
+      gorev,
+      hazard_class,
+      tur,
+      tarih,
+      sonraki: sonrakiTarih(tarih, hazard_class),
+      sonuc,
+      tetkikler,
+      notlar,
+      created_at: nowIso(),
+    };
+    d.muayeneler.push(m);
+  }
 
   d.seq = seq;
   return { data: d, kursiyerIds };

@@ -131,7 +131,7 @@ export default function MuayenePage() {
           { header: "Muayene Türü", width: 16, value: (m) => MUAYENE_TUR_LABEL[m.tur] },
           { header: "Muayene Tarihi", width: 14, kind: "date", value: (m) => m.tarih },
           { header: "Sonraki Muayene", width: 15, kind: "date", value: (m) => m.sonraki },
-          { header: "Durum", width: 16, value: (m) => (durum(m, now) === "guncel" ? "Güncel" : durumText(m, now)) },
+          { header: "Durum", width: 16, value: (m) => durumText(m, now) },
           { header: "Sonuç", width: 18, value: (m) => SONUC_LABEL[m.sonuc] },
           { header: "Tetkikler", width: 36, value: (m) => m.tetkikler.join(", ") },
           { header: "Notlar", width: 40, value: (m) => m.notlar },
