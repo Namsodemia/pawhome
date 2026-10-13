@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useMemo, useState, type ReactNode, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowDownLeft,
   Banknote,
@@ -15,7 +15,7 @@ import {
   UserX,
   Wallet,
 } from "lucide-react";
-import { Badge, Button, ButtonLink, Card, Chips, Empty, Field, Input, PageHeader, ProgressBar, Segment } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, Chips, Empty, Field, Input, PageHeader, ProgressBar, Segment, Loading } from "@/components/ui";
 import { FieldGroup } from "@/components/FieldGroup";
 import { confirmDialog, toast } from "@/components/feedback";
 import { useStore } from "@/lib/store";
@@ -33,8 +33,8 @@ function waNumber(phone: string): string {
   return d;
 }
 
-export default function KursiyerDetailPage() {
-  const params = useParams<{ id: string }>();
+function KursiyerDetailPageView() {
+  const params = { id: useSearchParams().get("id") ?? "" };
   const kid = Number(params?.id);
   return <KursiyerDetail key={kid} kid={kid} />;
 }
@@ -210,7 +210,7 @@ function KursiyerDetail({ kid }: { kid: number }) {
                 {classes.map((s) => (
                   <Link
                     key={s.id}
-                    href={`/app/siniflar/${s.id}`}
+                    href={`/app/siniflar/detay/?id=${s.id}`}
                     className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3.5 py-2 text-[13px] font-bold text-navy transition hover:border-brand-blue/40 hover:text-brand-blue"
                   >
                     <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.renk || "#107398" }} />
@@ -356,5 +356,13 @@ function QuickPay({ k }: { k: Kursiyer }) {
         <div className="text-[12px] leading-relaxed text-muted">Kasa seçiliyse tahsilat kasaya otomatik gelir olarak yansır (çift kayıt oluşmaz).</div>
       </div>
     </Card>
+  );
+}
+
+export default function KursiyerDetailPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <KursiyerDetailPageView />
+    </Suspense>
   );
 }

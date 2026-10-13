@@ -140,7 +140,7 @@ function AnalysisCard({ a, st, job }: { a: Analysis; st: { rows: number; max: nu
   const running = !!job?.running;
   const pct = running ? Math.max(4, Math.round(((job?.done ?? 0) * 100) / Math.max(1, job?.total ?? 1))) : 0;
   return (
-    <Card href={`/app/risk/${a.id}`} padded={false} className="p-3.5 md:p-4">
+    <Card href={`/app/risk/detay/?id=${a.id}`} padded={false} className="p-3.5 md:p-4">
       <div className="flex items-center gap-3.5">
         <span
           className="flex h-[56px] w-[52px] shrink-0 flex-col items-center justify-center rounded-2xl"

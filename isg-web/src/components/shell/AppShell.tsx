@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { Command, Search, Settings } from "lucide-react";
+import { CircleAlert, CloudCheck, Command, HardDrive, LoaderCircle, LogOut, Search, Settings } from "lucide-react";
 import { Logo } from "@/components/ui";
 import { FeedbackHost } from "@/components/feedback";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
 import { NAV_GROUPS, SETTINGS_ITEM, TABS, isActive, titleFor } from "@/lib/nav";
 import { useHydrated } from "@/lib/hydrate";
+import { useSync } from "@/lib/sync";
 import { cx, longDateTR } from "@/lib/format";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -77,6 +78,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
             Ayarlar
           </Link>
+          <SidebarUser />
           <div className="px-3 pt-2 text-[10.5px] text-[#9AA6B2]">İsgora Web · v1.0</div>
         </div>
       </aside>
@@ -93,6 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="text-[12px] capitalize text-muted">{date}</div>
             </div>
             <div className="ml-auto flex items-center gap-2">
+              <SyncBadge />
               <button
                 onClick={openPalette}
                 aria-label="Ara"
@@ -112,6 +115,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="mx-auto max-w-6xl px-4 pb-36 pt-5 md:px-6 lg:px-8 lg:pb-20">
+          <SyncBanner />
           {hydrated ? <div className="animate-fade-in">{children}</div> : <ShellSkeleton />}
           <footer className="mt-12 text-center text-[12px] text-[#9AA6B2]">İsgora · İş Sağlığı ve Güvenliği App</footer>
         </main>
@@ -153,5 +157,60 @@ function ShellSkeleton() {
       </div>
       <div className="skeleton h-64 w-full" />
     </div>
+  );
+}
+
+/** Kaydetme durumu: veriler PHP + SQLite sunucusuna yazılır */
+function SyncBadge() {
+  const status = useSync((s) => s.status);
+  if (status === "loading") return null;
+  const map = {
+    saved: { icon: CloudCheck, text: "Kaydedildi", cls: "text-success" },
+    saving: { icon: LoaderCircle, text: "Kaydediliyor…", cls: "text-brand-blue" },
+    error: { icon: CircleAlert, text: "Kaydedilemedi", cls: "text-danger" },
+    failed: { icon: CircleAlert, text: "Bağlantı yok", cls: "text-danger" },
+    local: { icon: HardDrive, text: "Yerel mod", cls: "text-muted" },
+  } as const;
+  const m = map[status];
+  const Icon = m.icon;
+  return (
+    <span className={cx("inline-flex h-10 items-center gap-1.5 rounded-2xl border border-line bg-white px-3 text-[12px] font-bold", m.cls)} title={m.text}>
+      <Icon size={15} className={status === "saving" ? "animate-spin" : undefined} />
+      <span className="hidden sm:inline">{m.text}</span>
+    </span>
+  );
+}
+
+function SyncBanner() {
+  const status = useSync((s) => s.status);
+  const message = useSync((s) => s.message);
+  if (!message || (status !== "error" && status !== "failed")) return null;
+  return (
+    <div className="no-print mb-4 flex items-start gap-2 rounded-2xl bg-soft-danger px-4 py-3 text-[13.5px] font-bold text-danger">
+      <CircleAlert size={17} className="mt-0.5 shrink-0" />
+      <span className="flex-1">{message}</span>
+      {status === "failed" ? (
+        <button onClick={() => window.location.reload()} className="shrink-0 underline">
+          Yenile
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function SidebarUser() {
+  const user = useSync((s) => s.user);
+  const backend = useSync((s) => s.backend);
+  if (!backend) return null;
+  return (
+    <a
+      href="/giris.php?cikis=1"
+      className="mt-1 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] font-bold text-text transition hover:bg-soft-danger hover:text-danger"
+    >
+      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-paper text-muted">
+        <LogOut size={16} />
+      </span>
+      <span className="min-w-0 flex-1 truncate">Çıkış yap{user ? <span className="block truncate text-[11px] font-semibold text-muted">{user}</span> : null}</span>
+    </a>
   );
 }

@@ -1,0 +1,50 @@
+# İsgora — Apache / LiteSpeed (cPanel) ayarları
+Options -Indexes
+DirectoryIndex index.html index.php
+ErrorDocument 404 /404.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # SSL sertifikası (cPanel > SSL/TLS Status > AutoSSL) aktif olunca aşağıdaki 3 satırın başındaki # işaretini kaldırın:
+  # RewriteCond %{HTTPS} !=on
+  # RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  # RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+  # Claude vekili: /api/anthropic/v1/messages -> api/index.php
+  RewriteRule ^api/anthropic/(.*)$ api/index.php?r=anthropic&p=$1 [QSA,L]
+</IfModule>
+
+# Veritabanı ve gizli dosyalar asla indirilemesin
+<FilesMatch "\.(sqlite|sqlite3|db|sql|log|ini|bak)$|^\.">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  <FilesMatch "\.(html|txt)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType image/png "access plus 1 month"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+AddType application/manifest+json .webmanifest
+AddType font/woff2 .woff2

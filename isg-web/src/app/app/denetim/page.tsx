@@ -29,7 +29,7 @@ function DenetimPage() {
   const firma = useStore((s) => s.settings.firma);
 
   useEffect(() => {
-    if (params.get("yeni") === "1") router.replace("/app/denetim/yeni");
+    if (params.get("yeni") === "1") router.replace("/app/denetim/detay/?id=yeni");
   }, [params, router]);
 
   const list = useMemo(() => [...denetimler].sort((a, b) => b.id - a.id), [denetimler]);
@@ -47,7 +47,7 @@ function DenetimPage() {
         title="Saha Denetimi"
         subtitle="Şablon seçip kontrol listesini doldurun, PDF olarak paylaşın."
         actions={
-          <ButtonLink href="/app/denetim/yeni" icon={Plus} className="hidden lg:inline-flex">
+          <ButtonLink href="/app/denetim/detay/?id=yeni" icon={Plus} className="hidden lg:inline-flex">
             Yeni Denetim
           </ButtonLink>
         }
@@ -80,7 +80,7 @@ function DenetimPage() {
             return (
               <Link
                 key={s.id}
-                href={`/app/denetim/yeni?sablon=${s.id}`}
+                href={`/app/denetim/detay/?id=yeni&sablon=${s.id}`}
                 className="group flex flex-col rounded-xl2 border border-line/70 bg-white p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-bar"
               >
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl text-white" style={{ background: SABLON_COLOR[s.id] ?? "#3AA466" }}>
@@ -104,7 +104,7 @@ function DenetimPage() {
             title="Saha denetimi yok"
             text="Saha denetimi yok. Şablon seçip kontrol listesini doldurun, PDF olarak paylaşın."
             action={
-              <ButtonLink href="/app/denetim/yeni" icon={Plus}>
+              <ButtonLink href="/app/denetim/detay/?id=yeni" icon={Plus}>
                 Yeni Denetim
               </ButtonLink>
             }
@@ -119,7 +119,7 @@ function DenetimPage() {
                   key={d.id}
                   className="flex items-center gap-1 rounded-xl2 border border-line/70 bg-white shadow-card transition hover:-translate-y-0.5 hover:shadow-bar"
                 >
-                  <Link href={`/app/denetim/${d.id}`} className="flex min-w-0 flex-1 items-center gap-3.5 p-4">
+                  <Link href={`/app/denetim/detay/?id=${d.id}`} className="flex min-w-0 flex-1 items-center gap-3.5 p-4">
                     <span className={cx("num flex h-12 w-14 shrink-0 items-center justify-center rounded-xl text-[17px] font-extrabold", tone.bg, tone.text)}>
                       %{d.puan}
                     </span>
@@ -160,7 +160,7 @@ function DenetimPage() {
         )}
       </Section>
 
-      <Fab label="Yeni Denetim" icon={Plus} href="/app/denetim/yeni" />
+      <Fab label="Yeni Denetim" icon={Plus} href="/app/denetim/detay/?id=yeni" />
     </div>
   );
 }

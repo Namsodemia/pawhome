@@ -74,7 +74,7 @@ export default function Dashboard() {
         loadDemo();
         toast("Örnek veriler yüklendi. Ayarlar'dan istediğiniz zaman silebilirsiniz.");
       }
-      window.history.replaceState(null, "", "/app");
+      window.history.replaceState(null, "", "/app/");
     }
     // yalnızca ilk açılışta
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,7 +153,7 @@ export default function Dashboard() {
                 <div className="min-w-0 flex-1">
                   <div className="text-[15.5px] font-extrabold text-navy">İsgora&apos;ya hoş geldiniz</div>
                   <div className="text-[13.5px] text-muted">
-                    Verileriniz yalnızca bu tarayıcıda saklanır. Modülleri dolu görmek için örnek verileri yükleyebilirsiniz.
+                    Verileriniz İsgora sunucusundaki veritabanında saklanır. Modülleri dolu görmek için örnek verileri yükleyebilirsiniz.
                   </div>
                 </div>
                 <Button

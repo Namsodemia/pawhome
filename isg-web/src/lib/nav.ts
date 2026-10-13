@@ -58,7 +58,9 @@ export const TABS: NavItem[] = ["/app", "/app/risk", "/app/kasa", "/app/musteri"
   (h) => ALL_NAV.find((n) => n.href === h)!,
 );
 
-export function isActive(pathname: string, href: string): boolean {
+export function isActive(rawPathname: string, href: string): boolean {
+  // Statik dışa aktarımda adresler "/" ile bitebilir (trailingSlash)
+  const pathname = rawPathname.length > 1 ? rawPathname.replace(/\/+$/, "") : rawPathname;
   if (href === "/app") return pathname === "/app";
   return pathname === href || pathname.startsWith(href + "/");
 }

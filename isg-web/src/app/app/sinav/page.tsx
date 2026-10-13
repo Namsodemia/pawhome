@@ -107,7 +107,7 @@ export default function SinavPage() {
                 return (
                   <Link
                     key={d.sira}
-                    href={`/app/sinav/${d.sira}`}
+                    href={`/app/sinav/ders/?d=${d.sira}`}
                     className="group flex items-center gap-3 rounded-2xl border border-line/70 bg-white p-3 shadow-card transition hover:-translate-y-0.5 hover:shadow-bar md:p-3.5"
                   >
                     <span
@@ -220,7 +220,7 @@ function ResultRow({ r, ad }: { r: SinavSonuc; ad?: string }) {
   );
   const cls = "flex items-center gap-3 px-4 py-3";
   return r.ders_sira != null ? (
-    <Link href={`/app/sinav/${r.ders_sira}`} className={cx(cls, "transition hover:bg-paper")}>
+    <Link href={`/app/sinav/ders/?d=${r.ders_sira}`} className={cx(cls, "transition hover:bg-paper")}>
       {inner}
     </Link>
   ) : (

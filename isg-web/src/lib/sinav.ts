@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo } from "react";
 import { create } from "zustand";
-import { del as idbDel, get as idbGet, set as idbSet } from "idb-keyval";
+import { kvDel, kvGet, kvSet } from "./sync";
 import { DERSLER, type Ders, type Soru } from "@/data/sorular";
 import type { SinavSonuc, SinavTur } from "./types";
 
 export type { Ders, Soru };
 export type KarisikSoru = Soru & { ders?: number };
 
-/** İçe aktarılan soru bankası IndexedDB'de bu anahtarla tutulur (mobil projedeki sorular.json ile aynı şema). */
+/** İçe aktarılan soru bankası sunucuda (yerel modda IndexedDB'de) bu anahtarla tutulur (mobil projedeki sorular.json ile aynı şema). */
 export const BANK_KEY = "isgora-soru-bankasi";
 export const GECME_NOTU = 70;
 export const LETTERS = ["A", "B", "C", "D", "E", "F"];
@@ -33,7 +33,7 @@ let loadPromise: Promise<void> | null = null;
 
 function ensureLoaded(): Promise<void> {
   if (!loadPromise) {
-    loadPromise = idbGet<unknown>(BANK_KEY)
+    loadPromise = kvGet<unknown>("bank", BANK_KEY)
       .then((raw) => {
         const r = raw ? validateBank(raw) : null;
         useBank.setState({ imported: r && r.dersler.length ? r.dersler : null, loaded: true });
@@ -117,9 +117,9 @@ export async function importBankFile(file: File): Promise<{ dersler: number; sor
   }
   const r = validateBank(raw);
   try {
-    await idbSet(BANK_KEY, r.dersler);
+    await kvSet("bank", BANK_KEY, r.dersler);
   } catch {
-    throw new Error("Soru bankası tarayıcıya kaydedilemedi (IndexedDB kullanılamıyor).");
+    throw new Error("Soru bankası kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.");
   }
   loadPromise = Promise.resolve();
   useBank.setState({ imported: r.dersler, loaded: true });
@@ -128,7 +128,7 @@ export async function importBankFile(file: File): Promise<{ dersler: number; sor
 
 export async function resetBank(): Promise<void> {
   try {
-    await idbDel(BANK_KEY);
+    await kvDel("bank", BANK_KEY);
   } catch {
     /* yok say */
   }

@@ -6,10 +6,9 @@ import { useStore } from "@/lib/store";
 
 /**
  * İki çalışma modu:
- *  1) Kullanıcı kendi Anthropic API anahtarını Ayarlar'dan girer → istek doğrudan tarayıcıdan gider
- *     (mobil uygulamadaki gibi; anahtar yalnızca bu tarayıcıda, localStorage'da durur).
- *  2) Anahtar girilmemişse istek /api/anthropic vekil rotasına gider; sunucu (Vercel) ANTHROPIC_API_KEY
- *     ortam değişkenini ekler. İsteğe bağlı APP_ACCESS_CODE ile korunur.
+ *  1) Kullanıcı kendi Anthropic API anahtarını Ayarlar'dan bu tarayıcı için girer → istek doğrudan tarayıcıdan gider.
+ *  2) Anahtar girilmemişse istek /api/anthropic vekiline gider; PHP sunucu (public/api/index.php) veritabanında
+ *     ya da config.php'de saklanan sunucu anahtarını ekler. Vekil yalnızca giriş yapmış kullanıcıya açıktır.
  */
 
 export const MODELS: { id: ModelId; label: string; note: string }[] = [
@@ -68,11 +67,18 @@ export interface ServerStatus {
 let _status: Promise<ServerStatus> | null = null;
 export function serverStatus(): Promise<ServerStatus> {
   if (!_status) {
-    _status = fetch("/api/ai-status", { cache: "no-store" })
+    _status = fetch("/api/index.php?r=ai-status", { cache: "no-store", credentials: "same-origin" })
       .then((r) => (r.ok ? (r.json() as Promise<ServerStatus>) : { serverKey: false, accessCodeRequired: false }))
       .catch(() => ({ serverKey: false, accessCodeRequired: false }));
   }
   return _status;
+}
+
+/** Sunucu anahtarı Ayarlar'dan değiştirildiğinde durum yeniden okunsun */
+export function resetServerStatus() {
+  _status = null;
+  _client = null;
+  notify();
 }
 
 export type AiMode = "key" | "server" | "none";
@@ -110,7 +116,7 @@ export async function client(): Promise<Anthropic> {
       dangerouslyAllowBrowser: true,
       maxRetries: 3,
       timeout: 600_000,
-      defaultHeaders: code ? { "x-isgora-access": code } : undefined,
+      defaultHeaders: code ? { "x-isgora": "1", "x-isgora-access": code } : { "x-isgora": "1" },
     });
     _clientSig = sig;
   }
@@ -163,12 +169,12 @@ export function extractJson<T = unknown>(text: string): T {
 export function describeError(e: unknown): string {
   if (e instanceof AiError) return e.message;
   if (e instanceof Anthropic.AuthenticationError) return "API anahtarı geçersiz. Ayarlardan kontrol edin.";
-  if (e instanceof Anthropic.PermissionDeniedError) return "Erişim reddedildi. Erişim kodunu veya API anahtarı yetkilerini kontrol edin.";
+  if (e instanceof Anthropic.PermissionDeniedError) return e.message?.includes("Oturum") ? "Oturum süresi doldu; sayfayı yenileyip tekrar giriş yapın." : "Erişim reddedildi. API anahtarı yetkilerini kontrol edin.";
   if (e instanceof Anthropic.RateLimitError) return "İstek sınırı aşıldı, biraz sonra tekrar deneyin.";
   if (e instanceof Anthropic.APIConnectionTimeoutError) return "İstek zaman aşımına uğradı. Kaldığı yerden devam edebilirsiniz.";
   if (e instanceof Anthropic.APIConnectionError) return "Bağlantı kurulamadı. İnternet bağlantınızı kontrol edin.";
   if (e instanceof Anthropic.APIError) {
-    if (e.status === 503) return "Sunucuda API anahtarı tanımlı değil. Ayarlar'dan kendi anahtarınızı girin.";
+    if (e.status === 503) return "Sunucuda API anahtarı tanımlı değil. Ayarlar > Yapay Zekâ bölümünden ekleyin.";
     if (e.status === 529 || e.status === 500) return "Yapay zekâ servisi şu an yoğun, biraz sonra tekrar deneyin.";
     return `API hatası ${e.status ?? ""}: ${e.message}`;
   }

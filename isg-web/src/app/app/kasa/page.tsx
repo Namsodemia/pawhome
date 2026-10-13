@@ -147,7 +147,7 @@ function KasaInner() {
   const hasFilter = kasa !== null || type !== "all" || !!month || !!q.trim();
 
   function onRow(t: Trx) {
-    if (t.ref_type === "kursiyer" && t.ref_id) router.push(`/app/musteri/${t.ref_id}`);
+    if (t.ref_type === "kursiyer" && t.ref_id) router.push(`/app/musteri/detay/?id=${t.ref_id}`);
     else openForm(t.id);
   }
 

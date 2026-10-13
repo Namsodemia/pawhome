@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Check, CheckCheck, ClipboardX, FileText, Minus, Save, Trash2, X, type LucideIcon } from "lucide-react";
 import type { Cevap, Denetim } from "@/lib/types";
 import { SABLONLAR, sablonById } from "@/data/denetim";
@@ -20,7 +20,7 @@ export default function DenetimEditorPage() {
 }
 
 function EditorGate() {
-  const params = useParams<{ id: string }>();
+  const params = { id: useSearchParams().get("id") ?? "yeni" };
   const search = useSearchParams();
   const idParam = String(params?.id ?? "yeni");
   const isNew = idParam === "yeni";
@@ -148,7 +148,7 @@ function DenetimEditor({ initial, initialSablon, onDeleted }: { initial?: Deneti
     const id = saveDenetim(current(), initial?.id ?? null);
     setDirty(false);
     toast(initial ? "Denetim güncellendi." : "Denetim kaydedildi.");
-    if (!initial) router.replace(`/app/denetim/${id}`);
+    if (!initial) router.replace(`/app/denetim/detay/?id=${id}`);
   }
 
   function pdf() {

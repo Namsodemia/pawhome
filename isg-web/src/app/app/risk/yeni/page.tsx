@@ -74,7 +74,7 @@ export default function NewRiskPage() {
       } else {
         void startGeneration(id);
       }
-      router.replace(`/app/risk/${id}`);
+      router.replace(`/app/risk/detay/?id=${id}`);
     } catch (err) {
       setBusy(false);
       toast(err instanceof Error ? err.message : String(err), "error");

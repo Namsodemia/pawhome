@@ -1,8 +1,8 @@
 "use client";
 
 import { create } from "zustand";
-import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
-import { get as idbGet, set as idbSet, del as idbDel } from "idb-keyval";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { serverStorage } from "./sync";
 import type {
   Analysis,
   Category,
@@ -30,44 +30,7 @@ import type {
 import { nowIso, norm, today } from "./format";
 import { buildDemoData } from "./demo";
 
-// Veriler tarayıcıda IndexedDB'de tutulur (mobil uygulamadaki çevrimdışı SQLite'ın web karşılığı).
-// IndexedDB kullanılamazsa (bazı gizli sekmeler) localStorage'a, o da yoksa belleğe düşer.
-const idbStorage: StateStorage = {
-  getItem: async (name) => {
-    try {
-      return (await idbGet<string>(name)) ?? null;
-    } catch {
-      try {
-        return localStorage.getItem(name);
-      } catch {
-        return null;
-      }
-    }
-  },
-  setItem: async (name, value) => {
-    try {
-      await idbSet(name, value);
-    } catch {
-      try {
-        localStorage.setItem(name, value);
-      } catch {
-        /* kalıcı depolama yok */
-      }
-    }
-  },
-  removeItem: async (name) => {
-    try {
-      await idbDel(name);
-    } catch {
-      /* yok say */
-    }
-    try {
-      localStorage.removeItem(name);
-    } catch {
-      /* yok say */
-    }
-  },
-};
+// Veriler PHP + SQLite sunucusunda tutulur (bkz. src/lib/sync.ts ve public/api/index.php).
 
 export const SEED_KASALAR = ["Şirket / Kasa"];
 export const SEED_CATEGORIES: Array<[TrxType, string]> = [
@@ -540,7 +503,7 @@ export const useStore = create<Store>()(
     {
       name: "isgora-data",
       version: 1,
-      storage: createJSONStorage(() => idbStorage),
+      storage: createJSONStorage(() => serverStorage),
       partialize: (s) => pickData(s),
       skipHydration: true,
       merge: (persisted, current) => {

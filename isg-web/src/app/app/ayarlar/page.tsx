@@ -28,6 +28,7 @@ import { confirmDialog, toast } from "@/components/feedback";
 import { kasaBalances, useStore, type Data } from "@/lib/store";
 import { cx, money, norm, nowIso, today } from "@/lib/format";
 import { downloadBlob } from "@/lib/print";
+import { apiFetch, useSync } from "@/lib/sync";
 import {
   AiError,
   MODELS,
@@ -37,6 +38,7 @@ import {
   describeError,
   getAccessCode,
   getApiKey,
+  resetServerStatus,
   serverStatus,
   setAccessCode,
   setApiKey,
@@ -94,7 +96,7 @@ export default function AyarlarPage() {
   const firma = useStore((s) => s.settings.firma);
   return (
     <div>
-      <PageHeader title="Ayarlar" subtitle="Yapay zekâ, firma, kasalar, kategoriler ve yedekleme" />
+      <PageHeader title="Ayarlar" subtitle="Yapay zekâ, firma, kasalar, kategoriler ve yedekleme" actions={<LogoutButton />} />
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
         <div className="space-y-5">
           <AiCard />
@@ -163,7 +165,16 @@ function AiCard() {
     };
   }, [savedKey, savedCode]);
 
-  function saveKey(e?: FormEvent) {
+  const backend = useSync((s) => s.backend);
+  const [busyKey, setBusyKey] = useState(false);
+
+  async function refreshServer() {
+    resetServerStatus();
+    setSrv(await serverStatus());
+    setMode(await aiMode());
+  }
+
+  async function saveKey(e?: FormEvent) {
     e?.preventDefault();
     const k = keyInput.trim();
     if (!k) {
@@ -174,10 +185,35 @@ function AiCard() {
       toast("Anthropic API anahtarı “sk-ant-” ile başlar. Anahtarı kontrol edin.", "error");
       return;
     }
+    if (backend) {
+      setBusyKey(true);
+      try {
+        const r = await apiFetch("ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: k }) });
+        if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { message?: string }).message || "Kaydedilemedi.");
+        if (savedKey) setApiKey("");
+        setKeyInput("");
+        setShow(false);
+        await refreshServer();
+        toast("API anahtarı sunucuda saklandı; tüm cihazlarınızda geçerli.");
+      } catch (err) {
+        toast(err instanceof Error ? err.message : "Kaydedilemedi.", "error");
+      } finally {
+        setBusyKey(false);
+      }
+      return;
+    }
     setApiKey(k);
     setKeyInput("");
     setShow(false);
     toast("API anahtarı bu tarayıcıda saklandı.");
+  }
+
+  async function removeServerKey() {
+    const ok = await confirmDialog({ title: "Sunucu anahtarını sil", text: "Yapay zekâ özellikleri, yeni bir anahtar girilene kadar çalışmaz.", okLabel: "Sil", danger: true });
+    if (!ok) return;
+    await apiFetch("ai-key", { method: "DELETE" });
+    await refreshServer();
+    toast("Sunucu anahtarı silindi.");
   }
 
   async function removeKey() {
@@ -219,11 +255,20 @@ function AiCard() {
   const modeInfo = mode ? MODE_TEXT[mode] : null;
 
   return (
-    <SettingsCard icon={Sparkles} title="Yapay Zekâ" sub="Anahtar yalnızca bu tarayıcıda saklanır.">
+    <SettingsCard
+      icon={Sparkles}
+      title="Yapay Zekâ"
+      sub={backend ? "Anahtar sunucudaki veritabanında saklanır; tarayıcıya geri gönderilmez." : "Anahtar yalnızca bu tarayıcıda saklanır."}
+    >
       {srv?.serverKey ? (
-        <div className="mb-4 flex items-start gap-2 rounded-2xl bg-soft-green px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-success">
-          <CircleCheck size={16} className="mt-0.5 shrink-0" />
-          Sunucu anahtarı tanımlı — kendi anahtarınızı girmeden de kullanabilirsiniz.
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-soft-green px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-success">
+          <CircleCheck size={16} className="shrink-0" />
+          <span className="min-w-0 flex-1">Sunucu anahtarı tanımlı — tüm cihazlarınızda yapay zekâ çalışır.</span>
+          {backend && !(srv as ServerStatus & { keyFromFile?: boolean }).keyFromFile ? (
+            <Button kind="danger" small icon={Trash2} onClick={removeServerKey}>
+              Sil
+            </Button>
+          ) : null}
         </div>
       ) : null}
 
@@ -240,7 +285,7 @@ function AiCard() {
 
       <form onSubmit={saveKey} className="space-y-2.5">
         <Field
-          label={savedKey ? "Yeni Anthropic API anahtarı" : "Anthropic API anahtarı"}
+          label={savedKey || srv?.serverKey ? "Yeni Anthropic API anahtarı" : "Anthropic API anahtarı"}
           hint={
             <>
               Anahtarı{" "}
@@ -273,8 +318,8 @@ function AiCard() {
             </button>
           </div>
         </Field>
-        <Button type="submit" icon={KeyRound} disabled={!keyInput.trim()}>
-          Anahtarı kaydet
+        <Button type="submit" icon={KeyRound} disabled={!keyInput.trim()} loading={busyKey}>
+          {backend ? (srv?.serverKey ? "Sunucu anahtarını değiştir" : "Anahtarı sunucuya kaydet") : "Anahtarı kaydet"}
         </Button>
       </form>
 
@@ -597,7 +642,7 @@ function DataCard() {
   async function wipe() {
     const ok = await confirmDialog({
       title: "Tüm verileri sil",
-      text: "Kasa hareketleri, kursiyerler, risk analizleri, sınıflar, sınav sonuçları ve tüm diğer kayıtlar bu tarayıcıdan kalıcı olarak silinecek. Bu işlem geri alınamaz; önce yedek almanız önerilir.",
+      text: "Kasa hareketleri, kursiyerler, risk analizleri, sınıflar, sınav sonuçları ve tüm diğer kayıtlar veritabanından kalıcı olarak silinecek. Bu işlem geri alınamaz; önce yedek almanız önerilir.",
       okLabel: "Hepsini sil",
       danger: true,
     });
@@ -616,12 +661,12 @@ function DataCard() {
   ];
 
   return (
-    <SettingsCard icon={Database} title="Veri ve Yedek" sub="Verileriniz yalnızca bu tarayıcıda tutulur." className="lg:col-span-2">
+    <SettingsCard icon={Database} title="Veri ve Yedek" sub="Verileriniz İsgora sunucusundaki SQLite veritabanında tutulur." className="lg:col-span-2">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
         <div>
           <p className="text-[13.5px] leading-relaxed text-text">
-            Tüm kayıtlar bu tarayıcının yerel veritabanında (IndexedDB) saklanır ve hiçbir sunucuya gönderilmez. Yalnızca yapay zekâ özelliklerini kullandığınızda
-            ilgili istem metni Anthropic&apos;e iletilir. Tarayıcı verilerini temizlerseniz ya da başka bir cihaza geçerseniz kayıtlarınız gelmez — düzenli yedek alın.
+            Tüm kayıtlar kendi hosting&apos;inizdeki SQLite veritabanına kaydedilir ve şifreli girişle korunur; hangi cihazdan giriş yaparsanız aynı veriler gelir.
+            Yalnızca yapay zekâ özelliklerini kullandığınızda ilgili istem metni Anthropic&apos;e iletilir. Yine de ara sıra JSON yedeği almanız önerilir.
           </p>
           <div className="mt-4 grid grid-cols-3 gap-2">
             {stats.map(([label, n]) => (
@@ -636,7 +681,7 @@ function DataCard() {
           <ActionTile icon={Download} title="Yedeği indir (JSON)" text="Tüm verilerin tek dosyalık kopyası." onClick={backup} />
           <ActionTile icon={Upload} title="Yedekten geri yükle" text="JSON yedeğini seçin; mevcut verilerin yerini alır." onClick={() => fileRef.current?.click()} busy={busy} />
           <ActionTile icon={FlaskConical} title="Örnek veri yükle" text="Modülleri denemek için örnek kayıtlar ekler." onClick={demo} />
-          <ActionTile icon={Trash2} title="Tüm verileri sil" text="Bu tarayıcıdaki tüm kayıtları kalıcı olarak siler." onClick={wipe} danger />
+          <ActionTile icon={Trash2} title="Tüm verileri sil" text="Veritabanındaki tüm kayıtları kalıcı olarak siler." onClick={wipe} danger />
         </div>
       </div>
       <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void restore(e.target.files?.[0])} />
@@ -663,5 +708,19 @@ function ActionTile({ icon: Icon, title, text, onClick, danger, busy }: { icon: 
         <span className="mt-0.5 block text-[12px] leading-snug text-muted">{text}</span>
       </span>
     </button>
+  );
+}
+
+function LogoutButton() {
+  const backend = useSync((s) => s.backend);
+  const user = useSync((s) => s.user);
+  if (!backend) return null;
+  return (
+    <a
+      href="/giris.php?cikis=1"
+      className="inline-flex h-9 items-center gap-2 rounded-2xl border border-line bg-white px-3.5 text-[13px] font-bold text-navy transition hover:bg-soft-danger hover:text-danger"
+    >
+      Çıkış yap{user ? <span className="font-semibold text-muted">· {user}</span> : null}
+    </a>
   );
 }

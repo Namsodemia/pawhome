@@ -73,7 +73,7 @@ export function CommandPalette() {
           id: `k${k.id}`,
           label: k.full_name,
           sub: [k.group_name, k.phone].filter(Boolean).join(" · "),
-          href: `/app/musteri/${k.id}`,
+          href: `/app/musteri/detay/?id=${k.id}`,
           icon: User,
           color: "#0B6F7B",
           group: "Kursiyerler",
@@ -82,12 +82,12 @@ export function CommandPalette() {
         id: `a${a.id}`,
         label: a.title,
         sub: `NACE ${a.nace_code || "-"} · ${a.sector_name}`,
-        href: `/app/risk/${a.id}`,
+        href: `/app/risk/detay/?id=${a.id}`,
         icon: ShieldCheck,
         color: "#5CBD7D",
         group: "Risk analizleri",
       })),
-      ...siniflar.map((s) => ({ id: `s${s.id}`, label: s.ad, sub: s.aciklama, href: `/app/siniflar/${s.id}`, icon: MessagesSquare, color: s.renk, group: "Sınıflar" })),
+      ...siniflar.map((s) => ({ id: `s${s.id}`, label: s.ad, sub: s.aciklama, href: `/app/siniflar/detay/?id=${s.id}`, icon: MessagesSquare, color: s.renk, group: "Sınıflar" })),
     ];
     if (!n) return [...QUICK, ...pages];
     const match = (c: Cmd) => norm(`${c.label} ${c.sub || ""}`).includes(n);

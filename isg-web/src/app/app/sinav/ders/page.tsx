@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useMemo, useState, Suspense } from "react";
 import { ChevronLeft, ChevronRight, CirclePlay, GraduationCap, Layers, PlayCircle, X } from "lucide-react";
 import Quiz from "@/components/Quiz";
 import { Badge, Button, ButtonLink, Card, Empty, Loading, PageHeader, Section } from "@/components/ui";
@@ -14,8 +14,8 @@ import { fmtSure, GECME_NOTU, sonucPct, TUR_LABEL, useQuestionBank } from "@/lib
 type Mode = "on" | "son" | "hepsi";
 const MODE_LABEL: Record<Mode, string> = { on: "Ön Test", son: "Son Test", hepsi: "Tüm Sorular" };
 
-export default function DersPage() {
-  const params = useParams<{ ders: string }>();
+function DersPageView() {
+  const params = { ders: useSearchParams().get("d") ?? "" };
   const sira = Number(params?.ders);
   const { dersler, loading } = useQuestionBank();
   const sonuclar = useStore((s) => s.sinavSonuclari);
@@ -130,7 +130,7 @@ export default function DersPage() {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
             {prev ? (
-              <Link href={`/app/sinav/${prev.sira}`} className="inline-flex max-w-[48%] items-center gap-1 text-[13px] font-bold text-muted hover:text-brand-blue">
+              <Link href={`/app/sinav/ders/?d=${prev.sira}`} className="inline-flex max-w-[48%] items-center gap-1 text-[13px] font-bold text-muted hover:text-brand-blue">
                 <ChevronLeft size={16} className="shrink-0" />
                 <span className="truncate">Ders {prev.sira}</span>
               </Link>
@@ -141,7 +141,7 @@ export default function DersPage() {
               Derslere dön
             </ButtonLink>
             {next ? (
-              <Link href={`/app/sinav/${next.sira}`} className="inline-flex max-w-[48%] items-center gap-1 text-[13px] font-bold text-muted hover:text-brand-blue">
+              <Link href={`/app/sinav/ders/?d=${next.sira}`} className="inline-flex max-w-[48%] items-center gap-1 text-[13px] font-bold text-muted hover:text-brand-blue">
                 <span className="truncate">Ders {next.sira}</span>
                 <ChevronRight size={16} className="shrink-0" />
               </Link>
@@ -195,5 +195,13 @@ export default function DersPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function DersPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <DersPageView />
+    </Suspense>
   );
 }

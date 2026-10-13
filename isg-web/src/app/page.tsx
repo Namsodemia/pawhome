@@ -141,18 +141,18 @@ export default function Landing() {
                 Uygulamayı aç <ArrowRight size={18} />
               </Link>
               <Link
-                href="/app?demo=1"
+                href="/giris.php"
                 className="inline-flex h-12 items-center gap-2 rounded-2xl border border-line bg-white px-6 text-[15px] font-bold text-navy transition hover:bg-paper"
               >
-                Örnek verilerle dene
+                Giriş yap
               </Link>
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[13px] font-semibold text-muted">
               <span className="inline-flex items-center gap-1.5">
-                <Lock size={14} className="text-brand-green" /> Üyelik gerekmez
+                <Lock size={14} className="text-brand-green" /> Şifreli giriş
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <Database size={14} className="text-brand-green" /> Veriler tarayıcınızda
+                <Database size={14} className="text-brand-green" /> SQLite veritabanı
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <FileSpreadsheet size={14} className="text-brand-green" /> Excel + PDF rapor
@@ -309,8 +309,8 @@ export default function Landing() {
       <section id="guvenlik" className="bg-navy py-20 text-white">
         <div className="mx-auto grid grid-cols-1 max-w-6xl gap-6 px-4 md:grid-cols-3 md:px-6">
           {[
-            [Database, "Verileriniz sizde", "Kayıtlar sunucuya değil, tarayıcınızın kendi veritabanına (IndexedDB) yazılır. Ayarlar'dan JSON yedek alıp geri yükleyebilirsiniz."],
-            [Sparkles, "Claude ile çalışır", "Yapay zekâ özellikleri Anthropic Claude ile çalışır. Kendi API anahtarınızı girin ya da sunucuda tanımlı anahtarı kullanın."],
+            [Database, "Verileriniz sizde", "Kayıtlar kendi hosting'inizdeki SQLite veritabanında, şifreli girişle korunur. Her cihazdan aynı verilere ulaşırsınız; Ayarlar'dan JSON yedek de alabilirsiniz."],
+            [Sparkles, "Claude ile çalışır", "Yapay zekâ özellikleri Anthropic Claude ile çalışır. API anahtarınızı bir kez Ayarlar'dan girin; sunucuda saklanır ve tüm cihazlarda geçerli olur."],
             [Smartphone, "Telefona kurun", "Tarayıcı menüsünden “Ana ekrana ekle” deyin; İsgora uygulama gibi tam ekran açılır."],
           ].map(([Icon, t, d]) => {
             const I = Icon as LucideIcon;
@@ -326,7 +326,7 @@ export default function Landing() {
           })}
         </div>
         <div className="mx-auto mt-12 flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 md:px-6">
-          <div className="text-[22px] font-extrabold">Hemen başlayın — kurulum yok.</div>
+          <div className="text-[22px] font-extrabold">Hemen başlayın.</div>
           <Link
             href="/app"
             className="inline-flex h-12 items-center gap-2 rounded-2xl bg-white px-6 text-[15px] font-extrabold text-navy transition hover:bg-white/90"

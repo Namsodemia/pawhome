@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, type ReactNode, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowDownWideNarrow,
   CalendarClock,
@@ -26,7 +26,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Badge, Button, ButtonLink, Card, Chips, Empty, Hero, HeroKicker, Input, PageHeader, ProgressBar, ScoreBox, Section, Segment } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, Chips, Empty, Hero, HeroKicker, Input, PageHeader, ProgressBar, ScoreBox, Section, Segment, Loading } from "@/components/ui";
 import { confirmDialog, toast } from "@/components/feedback";
 import { useStore } from "@/lib/store";
 import { aiMode, describeError, subscribeAiConfig, type AiMode } from "@/lib/ai/client";
@@ -43,8 +43,8 @@ import { RowEditor } from "./RowEditor";
 const ALL = "__tumu__";
 type SortMode = "sira" | "skor";
 
-export default function RiskDetailPage() {
-  const params = useParams<{ id: string }>();
+function RiskDetailPageView() {
+  const params = { id: useSearchParams().get("id") ?? "" };
   const id = Number(params?.id);
   const router = useRouter();
 
@@ -605,5 +605,13 @@ function RowItem({ r, n, onOpen }: { r: RiskRow; n: number; onOpen: () => void }
         <div className="hidden flex-col items-start gap-1.5 lg:flex">{badges}</div>
       </div>
     </button>
+  );
+}
+
+export default function RiskDetailPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <RiskDetailPageView />
+    </Suspense>
   );
 }

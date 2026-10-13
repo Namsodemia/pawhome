@@ -80,7 +80,7 @@ export default function SiniflarPage() {
     setAciklama("");
     setErr(null);
     setCreating(false);
-    router.push(`/app/siniflar/${id}?uyeler=yapistir`);
+    router.push(`/app/siniflar/detay/?id=${id}&uyeler=yapistir`);
   }
 
   return (
@@ -192,7 +192,7 @@ export default function SiniflarPage() {
                 {filtered.map((s) => (
                   <Link
                     key={s.id}
-                    href={`/app/siniflar/${s.id}`}
+                    href={`/app/siniflar/detay/?id=${s.id}`}
                     className="group flex items-center gap-3 rounded-2xl border border-line/70 bg-white p-3 shadow-card transition hover:-translate-y-0.5 hover:shadow-bar md:p-3.5"
                   >
                     <SinifInitial ad={s.ad} renk={s.renk} />

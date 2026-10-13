@@ -356,7 +356,7 @@ function AmountCell({ k }: { k: Kursiyer }) {
 function MobileRow({ k }: { k: Kursiyer }) {
   return (
     <Link
-      href={`/app/musteri/${k.id}`}
+      href={`/app/musteri/detay/?id=${k.id}`}
       className="flex items-center gap-3 rounded-2xl border border-line/70 bg-white p-3 shadow-card transition hover:-translate-y-0.5 hover:shadow-bar"
     >
       <KAvatar k={k} />
@@ -380,7 +380,7 @@ function MobileRow({ k }: { k: Kursiyer }) {
 function DesktopRow({ k, kasa }: { k: Kursiyer; kasa: string }) {
   return (
     <Link
-      href={`/app/musteri/${k.id}`}
+      href={`/app/musteri/detay/?id=${k.id}`}
       className="group grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,0.9fr)_110px_120px_20px] items-center gap-3 border-b border-line/70 px-4 py-2.5 transition last:border-b-0 hover:bg-soft-blue/40"
     >
       <span className="flex min-w-0 items-center gap-3">

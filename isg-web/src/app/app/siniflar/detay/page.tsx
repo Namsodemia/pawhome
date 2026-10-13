@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode, Suspense } from "react";
 import {
   ArrowRight,
   Bookmark,
@@ -26,7 +26,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { AvatarStack, Button, ButtonLink, Empty, Field, Input, Sheet } from "@/components/ui";
+import { AvatarStack, Button, ButtonLink, Empty, Field, Input, Sheet, Loading } from "@/components/ui";
 import { confirmDialog, toast } from "@/components/feedback";
 import { useStore } from "@/lib/store";
 import { cx, fmtTime } from "@/lib/format";
@@ -66,8 +66,8 @@ function isDesktop(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
 }
 
-export default function SinifChatPage() {
-  const params = useParams<{ id: string }>();
+function SinifChatPageView() {
+  const params = { id: useSearchParams().get("id") ?? "" };
   const sid = Number(params?.id);
   const router = useRouter();
 
@@ -104,7 +104,8 @@ export default function SinifChatPage() {
     if (m === "yapistir" || m === "tek" || m === "musteri" || m === "liste") {
       setMode(m);
       if (!isDesktop()) setMembersOpen(true);
-      window.history.replaceState(null, "", window.location.pathname);
+      sp.delete("uyeler");
+      window.history.replaceState(null, "", `${window.location.pathname}?${sp.toString()}`);
     }
   }, []);
 
@@ -656,5 +657,13 @@ function EditSheet({
         <ColorPicker value={renk} onChange={setRenk} />
       </div>
     </Sheet>
+  );
+}
+
+export default function SinifChatPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <SinifChatPageView />
+    </Suspense>
   );
 }
