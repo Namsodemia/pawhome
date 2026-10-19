@@ -113,7 +113,7 @@ export default function HesapPage() {
             </Field>
           </div>
           <div className="mt-4">
-            <Line k="İSG uzmanı" v={<span className="num">{`${fmtSaat(uzman)} / ay`}</span>} sub={`${UZMAN_DK[hz]} dk × çalışan`} />
+            <Line k="İş sağlığı ve güvenliği uzmanı" v={<span className="num">{`${fmtSaat(uzman)} / ay`}</span>} sub={`${UZMAN_DK[hz]} dk × çalışan`} />
             <Line k="İşyeri hekimi" v={<span className="num">{`${fmtSaat(hekim)} / ay`}</span>} sub={`${HEKIM_DK[hz]} dk × çalışan`} />
             {dsp ? (
               <Line k="Diğer sağlık personeli" v={<span className="num">{`${fmtSaat(dsp)} / ay`}</span>} sub={`${DSP_DK[hz]} dk × çalışan`} />

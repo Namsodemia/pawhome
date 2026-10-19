@@ -643,7 +643,7 @@ function KasalarCard() {
   }
 
   return (
-    <SettingsCard icon={Wallet} title="Kasalar" sub="Kursiyer tahsilatları ve hareketler hangi kasaya işlensin?">
+    <SettingsCard icon={Wallet} title="Kasalar" sub="Firma tahsilatları ve hareketler hangi kasaya işlensin?">
       {balances.length ? (
         <div className="divide-y divide-line/70 rounded-2xl border border-line/70">
           {balances.map((b) =>
@@ -845,7 +845,7 @@ function DataCard() {
   }
 
   const stats: [string, number][] = [
-    ["Kursiyer", nKursiyer],
+    ["Firma", nKursiyer],
     ["Kasa hareketi", nTrx],
     ["Risk analizi", nAnaliz],
     ["Sınıf", nSinif],

@@ -27,7 +27,7 @@ import { Card, Hero, HeroKicker, Section, Stat, Button } from "@/components/ui";
 import { toast } from "@/components/feedback";
 import dynamic from "next/dynamic";
 import { useProfil, useRol } from "@/lib/roles";
-import { HekimDashboard, OgrenciDashboard, UzmanDashboard } from "./RoleDashboards";
+import { DspDashboard, HekimDashboard, OgrenciDashboard, UzmanDashboard } from "./RoleDashboards";
 import { useStore, kasaBalances, monthSummary, kursiyerTotals, olayStats } from "@/lib/store";
 import { aiMode, subscribeAiConfig, type AiMode } from "@/lib/ai/client";
 import { useQuestionBank } from "@/lib/sinav";
@@ -43,6 +43,7 @@ export default function Dashboard() {
   const rol = useRol();
   if (rol === "uzman") return <UzmanDashboard />;
   if (rol === "hekim") return <HekimDashboard />;
+  if (rol === "dsp") return <DspDashboard />;
   if (rol === "ogrenci") return <OgrenciDashboard />;
   return <OsgbDashboard />;
 }

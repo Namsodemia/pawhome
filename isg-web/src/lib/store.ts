@@ -355,7 +355,7 @@ export const useStore = create<Store>()(
           })),
         addPayment: (id, amount, method, kasaId) => {
           const k = get().kursiyerler.find((x) => x.id === id);
-          if (!k) throw new Error("Kursiyer bulunamadı.");
+          if (!k) throw new Error("Firma bulunamadı.");
           if (k.remaining_amount <= 0.005) throw new Error("Bu kaydın kalan borcu yok.");
           if (!(amount > 0)) throw new Error("Tutar sıfırdan büyük olmalı.");
           if (amount > k.remaining_amount + 0.005) throw new Error(`Tutar kalan borcu (${k.remaining_amount.toLocaleString("tr-TR")} ₺) aşıyor.`);

@@ -319,7 +319,7 @@ export function MembersPanel({
                       <span className="truncate text-[13.5px] font-bold text-navy">{u.ad}</span>
                       {u.kursiyer_id ? (
                         <Badge tone="blue" className="!px-1.5 !py-0 !text-[10px]">
-                          kursiyer
+                          müşteri
                         </Badge>
                       ) : null}
                     </div>

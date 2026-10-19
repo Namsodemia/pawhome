@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "İsgora — İş Sağlığı ve Güvenliği App", template: "%s · İsgora" },
   description:
-    "Yapay zekâ destekli 5x5 risk analizi, kasa/cari, kursiyer takibi, İSG uzmanlığı sınav hazırlığı, sınıf mesajlaşma, mevzuat rehberi, kaza kaydı, saha denetimi ve İSG hesaplayıcı — tek uygulamada.",
+    "Yapay zekâ destekli 5x5 risk analizi, firma ve çalışan (İGU / İH / DSP) takibi, kasa/cari, iş sağlığı ve güvenliği uzmanlığı sınav hazırlığı, eğitimler, sınıf duyuruları, mevzuat rehberi, kaza kaydı, saha denetimi ve İSG hesaplayıcı — tek uygulamada.",
   applicationName: "İsgora",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "İsgora", statusBarStyle: "default" },

@@ -119,7 +119,7 @@ function printOlay(o: Olay, firma: string) {
         .join("")}
     </tbody></table>
     <p class="footer">Bu tutanak 6331 sayılı İş Sağlığı ve Güvenliği Kanunu m.14 kapsamında olayın kayıt altına alınması amacıyla düzenlenmiştir. İş kazaları kazadan sonraki 3 iş günü içinde SGK'ya bildirilmelidir.</p>
-    <div class="sign"><div>Düzenleyen (İSG Uzmanı)</div><div>Kazalı / Etkilenen</div><div>Tanık</div><div>İşveren / Vekili</div></div>`;
+    <div class="sign"><div>Düzenleyen (İş Sağlığı ve Güvenliği Uzmanı)</div><div>Kazalı / Etkilenen</div><div>Tanık</div><div>İşveren / Vekili</div></div>`;
   printHtml(`${title} — ${o.isyeri || fmtDate(o.tarih)}`, body);
 }
 

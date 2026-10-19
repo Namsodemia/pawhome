@@ -42,20 +42,20 @@ const ROL_ICERIK: Record<Rol, { chips: string[]; examples: string[]; caps: Cap[]
   osgb: {
     chips: [
       "Bu ay kasa durumu nasıl?",
-      "Borçlu kursiyerleri listele",
-      "Program bazında özet ver",
+      "Borçlu firmaları listele",
+      "Hizmet bazında özet ver",
       "6331 sayılı kanunda işverenin yükümlülükleri neler?",
       "Risk değerlendirmesi ne sıklıkla yenilenir?",
     ],
-    examples: ["Yasin kasasına 1.500 TL kırtasiye gideri gir", "Ayşe Yılmaz'dan 2.000 TL nakit tahsilat al"],
+    examples: ["Yasin kasasına 1.500 TL kırtasiye gideri gir", "Atlas Metal'den 2.000 TL nakit tahsilat al"],
     caps: [
       { icon: Wallet, color: "#107398", title: "Kasa / Cari", text: "Bakiyeler, aylık gelir-gider; tek veya toplu gelir/gider kaydı." },
-      { icon: ReceiptText, color: "#0B6F7B", title: "Tahsilat", text: "Kursiyerden tek veya toplu tahsilat; kalan borç düşer, kasaya yansır." },
-      { icon: UserPlus, color: "#5CBD7D", title: "Kursiyer kaydı", text: "Tek veya liste hâlinde kursiyer ekler; aynı TC + program atlanır." },
+      { icon: ReceiptText, color: "#0B6F7B", title: "Tahsilat", text: "Firmadan tek veya toplu tahsilat; kalan borç düşer, kasaya yansır." },
+      { icon: UserPlus, color: "#5CBD7D", title: "Firma kaydı", text: "Tek veya liste hâlinde firma ekler; aynı vergi no + hizmet atlanır." },
       { icon: ShieldCheck, color: "#F4772E", title: "Risk ve olaylar", text: "Risk analizleri, kaza / ramak kala ve denetim özetleri." },
       { icon: BookOpen, color: "#1E3145", title: "Mevzuat", text: "6331, RD Yönetmeliği, 5x5 matris ve İSG yükümlülükleri." },
     ],
-    intro: 'Kasa, kursiyer ve risk verilerinizi görür; kayıt girer, tahsilat işler, mevzuat sorularını yanıtlar. "Yasin kasasına 1.500 TL kırtasiye gideri gir" diyebilirsiniz.',
+    intro: 'Kasa, firma ve risk verilerinizi görür; kayıt girer, tahsilat işler, mevzuat sorularını yanıtlar. "Yasin kasasına 1.500 TL kırtasiye gideri gir" diyebilirsiniz.',
     note: "Kayıt işlemleri yalnızca onay kartında “Onayla” dediğinizde uygulanır.",
   },
   uzman: {

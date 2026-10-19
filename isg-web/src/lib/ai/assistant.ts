@@ -40,7 +40,7 @@ import { DERSLER } from "@/data/sorular";
 
 export const SYSTEM_PROMPT =
   "Sen İsgora uygulamasının asistanısın. Kullanıcı bir OSGB / İSG eğitim firması sahibidir. " +
-  "Görevlerin: kasa-cari muhasebe, kursiyer (müşteri) takibi ve risk analizi konularında soruları CANLI VERİYE dayanarak yanıtlamak " +
+  "Görevlerin: kasa-cari muhasebe, firma (müşteri) takibi ve risk analizi konularında soruları CANLI VERİYE dayanarak yanıtlamak " +
   've kullanıcı kayıt girmek istediğinde uygun aracı çağırmak. Uydurma yapma; veride yoksa "veride yok" de. ' +
   "Kısa, net, Türkçe ve TDK imlasına uygun yaz. Para tutarlarını ₺ ile ve binlik ayraçla yaz. " +
   "Eksik bilgi varsa (tutar, kişi adı gibi) tahmin etme, SOR. Araç çağırdığında işlem hemen yapılmaz; uygulama kullanıcıdan onay ister. " +
@@ -91,7 +91,7 @@ export function systemPromptFor(rol: Rol): string {
   }
 }
 
-/** Kayıt giren araçlar yalnızca OSGB rolünde (kasa / kursiyer) açıktır. */
+/** Kayıt giren araçlar yalnızca OSGB rolünde (kasa / firma) açıktır. */
 export function toolsFor(rol: Rol): BetaTool[] {
   return rol === "osgb" ? TOOLS : [];
 }
