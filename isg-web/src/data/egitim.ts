@@ -749,7 +749,7 @@ const DERSLER: Ders[] = [
     sorular: [
       {
         soru: "Benzin yangını hangi yangın sınıfına girer?",
-        secenekler: ["A", "B", "C", "D"],
+        secenekler: ["A sınıfı", "B sınıfı", "C sınıfı", "D sınıfı"],
         dogru: 1,
         aciklama: "B sınıfı; benzin, tiner, boya, alkol gibi sıvıların ve sıvılaşabilen katıların yangınıdır.",
       },
@@ -1132,7 +1132,7 @@ const SINAV: Soru[] = [
   {
     ders: "yangin",
     soru: "Doğal gaz ve LPG yangınları hangi yangın sınıfındadır?",
-    secenekler: ["A", "B", "C", "F"],
+    secenekler: ["A sınıfı", "B sınıfı", "C sınıfı", "F sınıfı"],
     dogru: 2,
     aciklama: "C sınıfı gaz yangınlarıdır; doğal gaz, LPG, asetilen ve hidrojen yangınları bu sınıftadır.",
   },

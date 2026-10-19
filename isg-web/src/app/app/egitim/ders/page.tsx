@@ -259,7 +259,7 @@ function DersIcerik({ ders, sira }: { ders: Ders; sira: number }) {
 
 /** "Başlık: açıklama" biçimindeki maddelerde başlığı kalın gösterir. */
 function MaddeMetni({ text }: { text: string }) {
-  const m = text.match(/^([^:]{2,60}):\s(.+)$/);
+  const m = text.match(/^([^:]{2,80}):\s(.+)$/);
   if (!m) return <>{text}</>;
   return (
     <>

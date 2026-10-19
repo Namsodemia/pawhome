@@ -50,8 +50,14 @@ export function karistir<T>(xs: T[]): T[] {
   return a;
 }
 
+/** Sayısal ("8 saat", "80 dB(A)") ya da harfli ("A sınıfı") şıklar yazıldığı sırada kalır. */
+function siraliMi(xs: string[]): boolean {
+  return xs.every((x) => /^\d/.test(x.trim())) || xs.every((x) => /^[A-Z] sınıfı$/.test(x.trim()));
+}
+
 /** Şıkları karıştırır, doğru cevabın yeni sırasını korur. */
 export function sikKaristir(q: Soru): Soru {
+  if (siraliMi(q.secenekler)) return q;
   const sira = karistir(q.secenekler.map((_, i) => i));
   return { ...q, secenekler: sira.map((i) => q.secenekler[i]), dogru: sira.indexOf(q.dogru) };
 }

@@ -475,7 +475,8 @@ export const useStore = create<Store>()(
                 e.id === cur.id
                   ? {
                       ...e,
-                      sinav_puan: puan,
+                      // Sertifika alındıysa belgedeki puan düşmesin: en yüksek puan kalır
+                      sinav_puan: e.basarili_at ? Math.max(e.sinav_puan ?? 0, puan) : puan,
                       // Bir kez geçtiyse sertifika korunur; daha düşük bir deneme onu silmez
                       basarili_at: e.basarili_at ?? (gecti ? now : null),
                       sertifika_no: e.sertifika_no || (gecti ? certNo() : ""),

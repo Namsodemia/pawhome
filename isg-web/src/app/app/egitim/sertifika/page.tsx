@@ -152,7 +152,7 @@ function Belge({ kurs, kayit, ad, kurum }: { kurs: Kurs; kayit: EgitimKayit; ad:
   return (
     <div id="egitim-belge" className="mx-auto w-full max-w-[820px] overflow-hidden rounded-xl2 border border-line/70 bg-white shadow-card print:rounded-none print:border-0 print:shadow-none">
       <div className="h-2 bg-brand" aria-hidden />
-      <div className="relative px-5 py-7 sm:px-10 sm:py-9">
+      <div className="relative px-5 py-7 sm:px-10 sm:py-9 print:py-14">
         <div className="pointer-events-none absolute inset-2.5 rounded-[18px] border border-[#D7E7EE] sm:inset-4" aria-hidden />
 
         <div className="relative">
@@ -167,12 +167,12 @@ function Belge({ kurs, kayit, ad, kurum }: { kurs: Kurs; kayit: EgitimKayit; ad:
           </div>
 
           {/* Başlık */}
-          <div className="mt-7 text-center sm:mt-8">
+          <div className="mt-7 text-center sm:mt-8 print:mt-12">
             <div className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-brand-teal">Çevrim içi eğitim</div>
             <h2 className="mt-2 text-[21px] font-extrabold uppercase leading-tight tracking-[0.04em] text-navy sm:text-[30px]">Eğitim Katılım Belgesi</h2>
             <div className="mx-auto mt-3 h-[3px] w-16 rounded-full bg-brand" aria-hidden />
 
-            <div className="mt-7 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">Katılımcı</div>
+            <div className="mt-7 text-[11px] font-bold uppercase tracking-[0.16em] text-muted print:mt-10">Katılımcı</div>
             {ad ? (
               <div className="mt-1 break-words text-[25px] font-extrabold leading-tight text-navy sm:text-[33px]">{ad}</div>
             ) : (
@@ -187,7 +187,7 @@ function Belge({ kurs, kayit, ad, kurum }: { kurs: Kurs; kayit: EgitimKayit; ad:
           </div>
 
           {/* Bilgiler */}
-          <div className="mt-7 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="mt-7 grid grid-cols-2 gap-2 sm:grid-cols-4 print:mt-10">
             {[
               { l: "Eğitim süresi", v: `${kurs.sure_saat} saat` },
               { l: "Tamamlanma tarihi", v: tarih },
@@ -196,18 +196,18 @@ function Belge({ kurs, kayit, ad, kurum }: { kurs: Kurs; kayit: EgitimKayit; ad:
             ].map((x) => (
               <div key={x.l} className="rounded-2xl border border-line bg-paper/60 px-3 py-2.5 text-center">
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">{x.l}</div>
-                <div className="num mt-0.5 text-[13.5px] font-extrabold text-navy">{x.v}</div>
+                <div className="mt-0.5 text-[13.5px] font-extrabold tabular-nums text-navy">{x.v}</div>
               </div>
             ))}
           </div>
 
           {/* Konular */}
-          <div className="mt-6">
+          <div className="mt-6 print:mt-10">
             <div className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-navy">
               <span className="inline-block h-[3px] w-4 rounded-full bg-brand" aria-hidden />
               Eğitim konuları
             </div>
-            <ol className="mt-2.5 grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2">
+            <ol className="mt-2.5 grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2 print:mt-3.5 print:gap-y-2.5">
               {kurs.dersler.map((d, i) => (
                 <li key={d.id} className="flex items-start gap-2 text-[12.5px] leading-snug text-text">
                   <span className="num mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-soft-green text-[10px] font-bold text-success">{i + 1}</span>
@@ -218,17 +218,17 @@ function Belge({ kurs, kayit, ad, kurum }: { kurs: Kurs; kayit: EgitimKayit; ad:
           </div>
 
           {/* Not */}
-          <div className="mt-6 rounded-xl bg-paper px-3.5 py-2.5 text-[11.5px] italic leading-relaxed text-muted">{NOT}</div>
+          <div className="mt-6 rounded-xl bg-paper px-3.5 py-2.5 text-[11.5px] italic leading-relaxed text-muted print:mt-10">{NOT}</div>
 
           {/* Alt satır */}
-          <div className="mt-5 flex flex-wrap items-end justify-between gap-3 border-t border-line pt-4 text-[11.5px] text-muted">
+          <div className="mt-5 flex flex-wrap items-end justify-between gap-3 border-t border-line pt-4 text-[11.5px] text-muted print:mt-8">
             <div className="flex items-center gap-2">
               <Award size={16} className="text-orange" />
               <span>
                 Düzenleyen: <b className="text-navy">İsgora</b> çevrim içi eğitim modülü
               </span>
             </div>
-            <div className="num">{tarih}</div>
+            <div className="tabular-nums">{tarih}</div>
           </div>
         </div>
       </div>
