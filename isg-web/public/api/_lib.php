@@ -632,6 +632,8 @@ function mail_from(): string
 
 function mime_header(string $s): string
 {
+    // Başlık enjeksiyonuna karşı: kullanıcı girdisi (kurum adı vb.) satır sonu taşıyamaz
+    $s = trim(str_replace(["\r", "\n"], ' ', $s));
     return preg_match('/[^\x20-\x7e]/', $s) ? '=?UTF-8?B?' . base64_encode($s) . '?=' : $s;
 }
 
