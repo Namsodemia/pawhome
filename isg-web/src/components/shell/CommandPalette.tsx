@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
-import { ArrowRight, MessagesSquare, Plus, Search, ShieldCheck, User, type LucideIcon } from "lucide-react";
+import { ArrowRight, Building2, MessagesSquare, Plus, Search, ShieldCheck, type LucideIcon } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { ALL_NAV } from "@/lib/nav";
 import { izinli, modulOf, useRol } from "@/lib/roles";
@@ -28,7 +28,8 @@ interface Cmd {
 const QUICK: Cmd[] = [
   { id: "q-risk", label: "Yeni risk analizi", href: "/app/risk/yeni", icon: Plus, color: "#5CBD7D", group: "Hızlı işlem" },
   { id: "q-kasa", label: "Gelir / gider ekle", href: "/app/kasa?yeni=1", icon: Plus, color: "#107398", group: "Hızlı işlem" },
-  { id: "q-kur", label: "Kursiyer ekle", href: "/app/musteri?yeni=1", icon: Plus, color: "#0B6F7B", group: "Hızlı işlem" },
+  { id: "q-kur", label: "Firma ekle", href: "/app/musteri?yeni=1", icon: Plus, color: "#0B6F7B", group: "Hızlı işlem" },
+  { id: "q-calisan", label: "Çalışan ekle (İGU / İH / DSP)", href: "/app/musteri?sekme=calisanlar&yeni=1", icon: Plus, color: "#0B6F7B", group: "Hızlı işlem" },
   { id: "q-olay", label: "Kaza / ramak kala kaydet", href: "/app/kaza?yeni=1", icon: Plus, color: "#D6334C", group: "Hızlı işlem" },
   { id: "q-den", label: "Saha denetimi başlat", href: "/app/denetim?yeni=1", icon: Plus, color: "#3AA466", group: "Hızlı işlem" },
   { id: "q-deneme", label: "25 soruluk deneme sınavı", href: "/app/sinav/deneme?n=25", icon: Plus, color: "#6C5CE7", group: "Hızlı işlem" },
@@ -76,11 +77,11 @@ export function CommandPalette() {
         .map((k) => ({
           id: `k${k.id}`,
           label: k.full_name,
-          sub: [k.group_name, k.phone].filter(Boolean).join(" · "),
+          sub: [k.group_name, k.yetkili, k.phone].filter(Boolean).join(" · "),
           href: `/app/musteri/detay/?id=${k.id}`,
-          icon: User,
+          icon: Building2,
           color: "#0B6F7B",
-          group: "Kursiyerler",
+          group: "Firmalar",
         })),
       ...analyses.map((a) => ({
         id: `a${a.id}`,
@@ -129,7 +130,7 @@ export function CommandPalette() {
                 setSel((v) => Math.max(0, v - 1));
               } else if (e.key === "Enter") go(results[sel]);
             }}
-            placeholder="Sayfa, kursiyer, analiz veya sınıf ara…"
+            placeholder="Sayfa, firma, analiz veya sınıf ara…"
             className="h-14 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-[#9AA6B2]"
           />
           <kbd className="rounded-md border border-line px-1.5 py-0.5 text-[11px] font-bold text-muted">ESC</kbd>

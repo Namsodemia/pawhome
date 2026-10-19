@@ -1,7 +1,7 @@
 import { useSync } from "./sync";
 
 /** Kayıtta seçilen kullanıcı rolü — menüler, ana sayfa ve asistan buna göre şekillenir. */
-export type Rol = "osgb" | "uzman" | "hekim" | "ogrenci";
+export type Rol = "osgb" | "uzman" | "hekim" | "dsp" | "ogrenci";
 
 /** /app/<modül> */
 export type Modul =
@@ -15,56 +15,67 @@ export type Modul =
   | "kaza"
   | "denetim"
   | "hesap"
-  | "muayene";
+  | "muayene"
+  | "egitim"
+  | "sinifim";
 
 export const ROLLER: { id: Rol; ad: string; kisa: string; aciklama: string; renk: string }[] = [
   {
     id: "osgb",
     ad: "OSGB / Eğitim Kurumu",
     kisa: "OSGB",
-    aciklama: "Risk analizi, kasa/cari, kursiyer takibi, sınıflar ve tüm İSG araçları",
+    aciklama: "Firma (müşteri) takibi, İGU / İH / DSP çalışan hesapları, risk analizi, kasa/cari, sınıflar ve tüm İSG araçları",
     renk: "#107398",
   },
   {
     id: "uzman",
-    ad: "İş Güvenliği Uzmanı",
-    kisa: "İSG Uzmanı",
-    aciklama: "Risk analizi, saha denetimi, kaza / ramak kala kayıtları, mevzuat ve hesaplayıcı",
+    ad: "İş Sağlığı ve Güvenliği Uzmanı (İGU)",
+    kisa: "İş Sağlığı ve Güvenliği Uzmanı",
+    aciklama: "Risk analizi, saha denetimi, kaza / ramak kala kayıtları, eğitimler, mevzuat ve hesaplayıcı",
     renk: "#5CBD7D",
   },
   {
     id: "hekim",
-    ad: "İşyeri Hekimi / Doktor",
+    ad: "İşyeri Hekimi (İH)",
     kisa: "İşyeri Hekimi",
-    aciklama: "Periyodik muayene takibi, meslek hastalığı ve kaza kayıtları, mevzuat",
+    aciklama: "Periyodik muayene takibi, meslek hastalığı ve kaza kayıtları, eğitimler, mevzuat",
     renk: "#D6334C",
+  },
+  {
+    id: "dsp",
+    ad: "Diğer Sağlık Personeli (DSP)",
+    kisa: "Diğer Sağlık Personeli",
+    aciklama: "Sağlık gözetimi ve muayene takibi, ilk yardım, kaza kayıtları, eğitimler ve mevzuat",
+    renk: "#B5467B",
   },
   {
     id: "ogrenci",
     ad: "Öğrenci / Uzman Adayı",
     kisa: "Öğrenci",
-    aciklama: "İSG uzmanlığı sınav hazırlık, deneme sınavları, mevzuat ve yapay zekâ asistanı",
+    aciklama: "İSG sınav hazırlık, deneme sınavları, sınıf grubu, eğitimler, mevzuat ve yapay zekâ asistanı",
     renk: "#6C5CE7",
   },
 ];
 
 export const MODULLER: Record<Rol, Modul[]> = {
-  osgb: ["risk", "kasa", "musteri", "siniflar", "sinav", "asistan", "mevzuat", "kaza", "denetim", "hesap", "muayene"],
-  uzman: ["risk", "denetim", "kaza", "asistan", "mevzuat", "hesap"],
-  hekim: ["muayene", "kaza", "risk", "asistan", "mevzuat", "hesap"],
-  ogrenci: ["sinav", "asistan", "mevzuat", "hesap"],
+  osgb: ["risk", "kasa", "musteri", "siniflar", "sinav", "egitim", "asistan", "mevzuat", "kaza", "denetim", "hesap", "muayene"],
+  uzman: ["risk", "denetim", "kaza", "egitim", "asistan", "mevzuat", "hesap"],
+  hekim: ["muayene", "kaza", "risk", "egitim", "asistan", "mevzuat", "hesap"],
+  dsp: ["muayene", "kaza", "risk", "egitim", "asistan", "mevzuat", "hesap"],
+  ogrenci: ["sinav", "sinifim", "egitim", "asistan", "mevzuat", "hesap"],
 };
 
 /** Mobil alt sekme çubuğu (Ana Sayfa + en çok kullanılan modüller) */
 export const SEKMELER: Record<Rol, Modul[]> = {
   osgb: ["risk", "kasa", "musteri", "sinav", "asistan"],
-  uzman: ["risk", "denetim", "kaza", "mevzuat", "asistan"],
-  hekim: ["muayene", "kaza", "risk", "mevzuat", "asistan"],
-  ogrenci: ["sinav", "mevzuat", "hesap", "asistan"],
+  uzman: ["risk", "denetim", "kaza", "egitim", "asistan"],
+  hekim: ["muayene", "kaza", "risk", "egitim", "asistan"],
+  dsp: ["muayene", "kaza", "egitim", "mevzuat", "asistan"],
+  ogrenci: ["sinav", "sinifim", "egitim", "asistan"],
 };
 
 export function isRol(v: unknown): v is Rol {
-  return v === "osgb" || v === "uzman" || v === "hekim" || v === "ogrenci";
+  return v === "osgb" || v === "uzman" || v === "hekim" || v === "dsp" || v === "ogrenci";
 }
 
 export function rolBilgi(rol: Rol) {
@@ -95,14 +106,32 @@ export function izinli(rol: Rol, modul: Modul | null): boolean {
   return modul === null || MODULLER[rol].includes(modul);
 }
 
-/** Kayıt sırasında girilen role özel bilgiler */
+/** Kayıt sırasında girilen role özel bilgiler (sunucuda clean_profile ile aynı beyaz liste) */
 export interface Profil {
   ad_soyad?: string;
-  kurum?: string; // OSGB / firma / hastane / okul
+  telefon?: string;
+  /** OSGB adı / çalıştığı firma / hastane / eğitim aldığı kurum */
+  kurum?: string;
   il?: string;
+  ilce?: string;
+  /** İGU */
   uzmanlik_sinifi?: "A" | "B" | "C" | "";
-  hedef_sinav?: string; // A / B / C / İşyeri Hekimliği / DSP
-  sinav_tarihi?: string;
+  /** İGU / İH / DSP belge (sertifika) numarası */
+  belge_no?: string;
+  /** Mesleki deneyim (yıl aralığı) */
+  deneyim?: string;
+  /** İH: uzmanlık alanı */
+  uzmanlik_alani?: string;
+  /** DSP: meslek (hemşire, sağlık memuru …) */
+  meslek?: string;
+  /** Öğrenci: hazırlandığı sınav */
+  hedef_sinav?: string;
+  /** Öğrenci: okuduğu / mezun olduğu bölüm */
+  bolum?: string;
+  /** OSGB */
+  yetki_belge_no?: string;
+  vergi_no?: string;
+  adres?: string;
 }
 
 export function useProfil(): Profil {

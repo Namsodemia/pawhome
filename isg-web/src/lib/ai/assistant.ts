@@ -19,7 +19,7 @@ import type {
   BetaToolUseBlock,
 } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import type { ChatMsg, Effort, ModelId } from "@/lib/types";
-import { client, fallbackParams } from "./client";
+import { client, fallbackParams, newQueryId, queryHeaders } from "./client";
 import {
   analysisSummary,
   findCategoryByName,
@@ -68,6 +68,15 @@ export function systemPromptFor(rol: Rol): string {
         "iş kazası sonrası süreçler, ilk yardım, işe dönüş değerlendirmesi, tetkik planlaması (odyometri, SFT, akciğer grafisi vb.) ve İSG mevzuatı " +
         "konularında destek vermek; soruları CANLI VERİYE (muayene kayıtları, olaylar) dayanarak yanıtlamak. " +
         "Bireysel hasta için kesin tanı koyma; klinik kararın hekime ait olduğunu hatırlat. " +
+        ORTAK_KURAL
+      );
+    case "dsp":
+      return (
+        "Sen İsgora uygulamasının asistanısın. Kullanıcı işyerinde görevli diğer sağlık personelidir (DSP: hemşire, sağlık memuru, " +
+        "acil tıp teknisyeni vb.). Görevlerin: işyeri hekimiyle birlikte yürütülen sağlık gözetimi, periyodik muayene takvimi ve hatırlatmaları, " +
+        "ilk yardım ve acil durum hazırlığı, iş kazası sonrası ilk müdahale kayıtları, sağlık eğitimleri, hijyen ve meslek hastalıklarından korunma " +
+        "konularında destek vermek; soruları CANLI VERİYE (muayene kayıtları, olaylar) dayanarak yanıtlamak. " +
+        "Tanı ve tedavi kararının işyeri hekimine ait olduğunu hatırlat. " +
         ORTAK_KURAL
       );
     case "ogrenci":
@@ -140,7 +149,7 @@ export const TOOLS: BetaTool[] = [
   },
   {
     name: "kursiyer_tahsilat",
-    description: "TEK bir kursiyerden tahsilat girer (kalan borcu düşer, kasaya yansıtır).",
+    description: "Müşteri Takip'teki TEK bir firmadan (müşteriden) tahsilat girer (kalan borcu düşer, kasaya yansıtır). ad_soyad = firma adı.",
     strict: true,
     input_schema: {
       type: "object",
@@ -156,7 +165,7 @@ export const TOOLS: BetaTool[] = [
   },
   {
     name: "kursiyer_toplu_tahsilat",
-    description: "BİRDEN FAZLA kursiyerden tahsilat girer. Liste hâlinde ödeme verildiyse bunu kullan.",
+    description: "BİRDEN FAZLA firmadan (müşteriden) tahsilat girer. Liste hâlinde ödeme verildiyse bunu kullan. ad_soyad = firma adı.",
     strict: true,
     input_schema: {
       type: "object",
@@ -179,13 +188,13 @@ export const TOOLS: BetaTool[] = [
   },
   {
     name: "kursiyer_ekle",
-    description: "TEK bir kursiyer/müşteri kaydı ekler. Birden fazla varsa kursiyer_toplu_ekle kullan.",
+    description: "Müşteri Takip'e TEK bir firma (müşteri) kaydı ekler; ad_soyad = firma adı / unvanı, program = verilen hizmet. Birden fazla varsa kursiyer_toplu_ekle kullan.",
     strict: true,
     input_schema: {
       type: "object",
       properties: {
         ad_soyad: { type: "string" },
-        program: { type: "string", description: "Eğitim/program adı" },
+        program: { type: "string", description: "Hizmet / program adı (ör. İSG Hizmeti, Eğitim, Risk Analizi)" },
         tutar: { type: "number", description: "Sözleşme tutarı (TL)" },
         telefon: { type: "string" },
         tc: { type: "string" },
@@ -197,7 +206,7 @@ export const TOOLS: BetaTool[] = [
   },
   {
     name: "kursiyer_toplu_ekle",
-    description: "BİRDEN FAZLA kursiyeri tek seferde ekler (aynı TC + aynı program varsa atlanır).",
+    description: "BİRDEN FAZLA firmayı (müşteriyi) tek seferde ekler; ad_soyad = firma adı, tc = vergi / TC kimlik no (aynı numara + aynı hizmet varsa atlanır).",
     strict: true,
     input_schema: {
       type: "object",
@@ -229,10 +238,10 @@ export const TOOLS: BetaTool[] = [
 export const TOOL_LABELS: Record<string, string> = {
   kasa_hareketi_ekle: "Kasa hareketi ekle",
   kasa_toplu_ekle: "Toplu kasa hareketi",
-  kursiyer_tahsilat: "Kursiyer tahsilatı",
+  kursiyer_tahsilat: "Firma tahsilatı",
   kursiyer_toplu_tahsilat: "Toplu tahsilat",
-  kursiyer_ekle: "Kursiyer ekle",
-  kursiyer_toplu_ekle: "Toplu kursiyer ekle",
+  kursiyer_ekle: "Firma ekle",
+  kursiyer_toplu_ekle: "Toplu firma ekle",
 };
 
 export const FIELD_LABELS: Record<string, string> = {
@@ -244,10 +253,10 @@ export const FIELD_LABELS: Record<string, string> = {
   tarih: "Tarih",
   yontem: "Yöntem",
   kayitlar: "Kayıtlar",
-  ad_soyad: "Ad soyad",
-  program: "Program",
+  ad_soyad: "Firma / müşteri",
+  program: "Hizmet / program",
   telefon: "Telefon",
-  tc: "TC",
+  tc: "Vergi / TC no",
   not: "Not",
   dogum_tarihi: "Doğum tarihi",
 };
@@ -257,7 +266,7 @@ export const FIELD_LABELS: Record<string, string> = {
 /** Her istekte yeniden üretilen canlı özet — role göre ilgili veriler. */
 export function snapshot(rol: Rol = currentRol()): string {
   if (rol === "uzman") return snapshotUzman();
-  if (rol === "hekim") return snapshotHekim();
+  if (rol === "hekim" || rol === "dsp") return snapshotHekim();
   if (rol === "ogrenci") return snapshotOgrenci();
   return snapshotOsgb();
 }
@@ -295,7 +304,16 @@ function olayLines(): string[] {
 
 function profilLine(): string | null {
   const p = (useSync.getState().profil ?? {}) as Record<string, string>;
-  const parts = [p.ad_soyad, p.kurum, p.il, p.uzmanlik_sinifi ? `${p.uzmanlik_sinifi} sınıfı` : "", p.hedef_sinav ? `hedef: ${p.hedef_sinav}` : "", p.sinav_tarihi ? `sınav tarihi ${p.sinav_tarihi}` : ""].filter(Boolean);
+  const parts = [
+    p.ad_soyad,
+    p.kurum,
+    p.il,
+    p.uzmanlik_sinifi ? `${p.uzmanlik_sinifi} sınıfı` : "",
+    p.meslek ? `meslek: ${p.meslek}` : "",
+    p.uzmanlik_alani ? `uzmanlık: ${p.uzmanlik_alani}` : "",
+    p.hedef_sinav ? `hedef: ${p.hedef_sinav}` : "",
+    p.bolum ? `bölüm: ${p.bolum}` : "",
+  ].filter(Boolean);
   return parts.length ? `Kullanıcı: ${parts.join(", ")}` : null;
 }
 
@@ -367,7 +385,7 @@ function snapshotOsgb(): string {
 
   const groups = new Map<string, { n: number; remaining: number }>();
   for (const k of active) {
-    const g = k.group_name.trim() || "(Grupsuz)";
+    const g = k.group_name.trim() || "(Hizmet belirtilmemiş)";
     const cur = groups.get(g) ?? { n: 0, remaining: 0 };
     cur.n += 1;
     cur.remaining += k.remaining_amount;
@@ -390,9 +408,9 @@ function snapshotOsgb(): string {
   lines.push(`Kasalar (ad → bakiye): ${bal.map((b) => `${b.title} → ${money(b.bakiye)}`).join(" | ") || "yok"}`);
   lines.push(`Tanımlı kasa adları: ${kasalar.map((k) => k.title).join(", ") || "yok"}`);
   lines.push(`Bu ay gelir ${money(ym.gelir)}, gider ${money(ym.gider)}`);
-  lines.push(`Müşteri Takip: ${tot.n} kişi, sözleşme ${money(tot.total)}, tahsil ${money(tot.collected)}, kalan ${money(tot.remaining)}`);
-  if (groupList.length) lines.push("Program bazında: " + groupList.map(([g, v]) => `${g}: ${v.n} kişi, kalan ${money(v.remaining)}`).join(" | "));
-  if (debtors.length) lines.push("En borçlular: " + debtors.map((d) => `${d.full_name} ${money(d.remaining_amount)}`).join("; "));
+  lines.push(`Müşteri Takip (firmalar): ${tot.n} firma, sözleşme ${money(tot.total)}, tahsil ${money(tot.collected)}, kalan ${money(tot.remaining)}`);
+  if (groupList.length) lines.push("Hizmet bazında: " + groupList.map(([g, v]) => `${g}: ${v.n} firma, kalan ${money(v.remaining)}`).join(" | "));
+  if (debtors.length) lines.push("En borçlu firmalar: " + debtors.map((d) => `${d.full_name} ${money(d.remaining_amount)}`).join("; "));
   if (recent.length)
     lines.push(
       "Son hareketler: " +
@@ -482,6 +500,8 @@ export interface CallOpts {
   signal?: AbortSignal;
   /** Akış sırasında biriken yanıt metni */
   onText?: (text: string) => void;
+  /** Kullanıcının sorusu başına tek kimlik (araç turları aynı sorgu sayılır) — bkz. newQueryId */
+  queryId?: string;
 }
 
 /** Tek bir Messages API çağrısı (akışlı). Aynı tur içinde system/tools/model sabit kalmalıdır. */
@@ -498,7 +518,7 @@ export async function callAssistant(messages: BetaMessageParam[], opts: CallOpts
       output_config: { effort: opts.effort },
       ...fallbackParams(opts.model),
     },
-    { signal: opts.signal },
+    { signal: opts.signal, headers: queryHeaders(opts.queryId ?? newQueryId()) },
   );
   let acc = "";
   stream.on("text", (delta) => {
@@ -584,7 +604,7 @@ export function runAction(name: string, input: Record<string, unknown>): string 
     }
     case "kursiyer_ekle": {
       const ad = str(inp.ad_soyad);
-      if (!ad) throw new Error("Ad soyad boş olamaz.");
+      if (!ad) throw new Error("Firma adı boş olamaz.");
       const tutar = Math.max(0, num(inp.tutar));
       const program = str(inp.program);
       const id = useStore.getState().addKursiyer({
@@ -604,7 +624,7 @@ export function runAction(name: string, input: Record<string, unknown>): string 
         notes: str(inp.not),
         invoice_issue_date: "",
       });
-      return `Kursiyer eklendi (#${id}): ${ad} — ${program}, ${money(tutar)}`;
+      return `Firma eklendi (#${id}): ${ad}${program ? ` — ${program}` : ""}, ${money(tutar)}`;
     }
     case "kursiyer_toplu_ekle": {
       const program = str(inp.program);
@@ -642,7 +662,7 @@ export function runAction(name: string, input: Record<string, unknown>): string 
         if (tc) tcs.add(tc);
         ok += 1;
       }
-      return `${ok} kursiyer eklendi (${program}).` + (skip ? ` ${skip} kayıt zaten vardı, atlandı.` : "");
+      return `${ok} firma eklendi${program ? ` (${program})` : ""}.` + (skip ? ` ${skip} kayıt zaten vardı, atlandı.` : "");
     }
     default:
       throw new Error(`Bilinmeyen araç: ${name}`);
@@ -669,7 +689,7 @@ function addOne(x: { tip: string; tutar: number; aciklama: string; kasa: string;
 }
 
 function payOne(name: string, amount: number, yontem: string, kasaName: string): string {
-  if (!name) throw new Error("Kursiyer adı boş olamaz.");
+  if (!name) throw new Error("Firma adı boş olamaz.");
   const st = useStore.getState();
   const found = findKursiyerByName(st, name);
   if (!found.length) throw new Error(`'${name}' bulunamadı.`);

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AlarmClock,
+  Award,
   BookOpen,
   Building2,
   Calculator,
@@ -16,15 +17,19 @@ import {
   Flame,
   GraduationCap,
   HardHat,
+  HeartPulse,
   KeyRound,
   Lightbulb,
+  Megaphone,
   MessagesSquare,
+  Phone,
+  Presentation,
+  School,
   ShieldCheck,
   Siren,
   Sparkles,
   Stethoscope,
   Target,
-  Timer,
   Trophy,
   TriangleAlert,
   UserPlus,
@@ -36,22 +41,25 @@ import {
 } from "lucide-react";
 import { Badge, Button, ButtonLink, Card, Hero, HeroKicker, ProgressBar, Section } from "@/components/ui";
 import { toast } from "@/components/feedback";
+import { AiQuotaWarning, useAiQuota } from "@/components/AiQuota";
 import { analysisSummary, olayStats, useStore } from "@/lib/store";
 import { useSync } from "@/lib/sync";
 import { rolBilgi, useProfil, type Modul, type Rol } from "@/lib/roles";
 import { aiMode, subscribeAiConfig, type AiMode } from "@/lib/ai/client";
+import { atamalarim, siniflarim, type AtananFirma, type SinifimItem } from "@/lib/api";
+import { normPhone, prettyPhone } from "@/lib/phone";
 import { bestByDers, GECME_NOTU, LETTERS, sonucPct, TUR_LABEL, useQuestionBank, type Ders, type Soru } from "@/lib/sinav";
-import { DURUM_META, PERIYOT_SATIRLARI, durum, durumText, gunKaldi, muayeneStats, siraliSonraki, sonKayitlar } from "@/lib/muayene";
+import { DURUM_META, PERIYOT_SATIRLARI, durum, durumText, muayeneStats, siraliSonraki, sonKayitlar } from "@/lib/muayene";
 import { RISK_META, level } from "@/lib/risk";
 import { cx, fmtDate, greeting, initials, longDateTR, today } from "@/lib/format";
-import type { OlayTur } from "@/lib/types";
+import type { EgitimKayit, HazardClass, OlayTur } from "@/lib/types";
 
 // =====================================================================================
 // Ortak parçalar
 // =====================================================================================
 
-const ROL_TONE: Record<Rol, "blue" | "green" | "red" | "violet"> = { osgb: "blue", uzman: "green", hekim: "red", ogrenci: "violet" };
-const ROL_ICON: Record<Rol, LucideIcon> = { osgb: Building2, uzman: HardHat, hekim: Stethoscope, ogrenci: GraduationCap };
+const ROL_TONE: Record<Rol, "blue" | "green" | "red" | "violet"> = { osgb: "blue", uzman: "green", hekim: "red", dsp: "red", ogrenci: "violet" };
+const ROL_ICON: Record<Rol, LucideIcon> = { osgb: Building2, uzman: HardHat, hekim: Stethoscope, dsp: HeartPulse, ogrenci: GraduationCap };
 
 const TILE: Record<Modul, { label: string; href: string; icon: LucideIcon; color: string }> = {
   risk: { label: "Risk Analizi", href: "/app/risk/", icon: ShieldCheck, color: "#5CBD7D" },
@@ -65,7 +73,25 @@ const TILE: Record<Modul, { label: string; href: string; icon: LucideIcon; color
   denetim: { label: "Saha Denetimi", href: "/app/denetim/", icon: ClipboardCheck, color: "#3AA466" },
   hesap: { label: "Hesaplayıcı", href: "/app/hesap/", icon: Calculator, color: "#F4772E" },
   muayene: { label: "Periyodik Muayene", href: "/app/muayene/", icon: Stethoscope, color: "#0B6F7B" },
+  egitim: { label: "Eğitimler", href: "/app/egitim/", icon: Presentation, color: "#E0812B" },
+  sinifim: { label: "Sınıfım", href: "/app/sinifim/", icon: School, color: "#1B8ECF" },
 };
+
+/** Hazır eğitim: Temel İş Sağlığı ve Güvenliği Eğitimi */
+const TEMEL_EGITIM = "temel-isg";
+
+/** Eğitimler modülündeki hazır eğitimin ilerleme özeti (store: egitimler) */
+function useEgitimOzet() {
+  const kayit = useStore((s) => s.egitimler.find((e) => e.kurs_id === TEMEL_EGITIM)) as EgitimKayit | undefined;
+  const ders = kayit?.tamamlanan.length ?? 0;
+  const sertifika = !!kayit?.basarili_at;
+  const sub = sertifika ? "Sertifika alındı" : ders ? `${ders} ders tamamlandı` : "Temel İSG eğitimi · sertifika";
+  return { kayit, ders, sertifika, puan: kayit?.sinav_puan ?? null, sub };
+}
+
+function egitimTile(sub: string): TileItem {
+  return { m: "egitim", sub };
+}
 
 const OLAY_META: Record<OlayTur, { label: string; color: string }> = {
   kaza: { label: "İş kazası", color: "#D6334C" },
@@ -98,8 +124,10 @@ function Greeting({ rol, hello }: { rol: Rol; hello: { g: string; d: string } })
         {first ? `, ${first}` : ""} <span aria-hidden>👋</span>
       </h1>
       <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[14px] text-muted">
-        <Badge tone={ROL_TONE[rol]}>
-          <Icon size={12} strokeWidth={2.6} /> {info.kisa}
+        {/* Uzun rol adları ("İş Sağlığı ve Güvenliği Uzmanı") dar ekranda taşmasın: rozet satır kırabilir */}
+        <Badge tone={ROL_TONE[rol]} className="max-w-full !whitespace-normal text-left leading-tight">
+          <Icon size={12} strokeWidth={2.6} className="shrink-0" />
+          <span className="min-w-0 break-words">{info.kisa}</span>
         </Badge>
         {profil.kurum ? <span className="font-semibold text-text">{profil.kurum}</span> : null}
         {hello.d ? <span className="capitalize">{hello.d}</span> : null}
@@ -137,17 +165,24 @@ function Banner({ href, icon: Icon, tone, children }: { href: string; icon: Luci
   );
 }
 
-/** Yapay zekâ yapılandırılmamışsa ayarlara yönlendiren bant */
+/** Yapay zekâ yapılandırılmamışsa (ya da ücretsiz sorgular bittiyse) ayarlara yönlendiren bant */
 function AiBanner() {
   const [mode, setMode] = useState<AiMode | null>(null);
+  const quota = useAiQuota();
   useEffect(() => {
-    const refresh = () => void aiMode().then(setMode);
+    let alive = true;
+    const refresh = () =>
+      void aiMode().then((m) => {
+        if (alive) setMode(m);
+      });
     refresh();
     const unsub = subscribeAiConfig(refresh);
     return () => {
+      alive = false;
       unsub();
     };
   }, []);
+  if (quota.kind === "bitti") return <AiQuotaWarning limit={quota.limit} />;
   if (mode !== "none") return null;
   return (
     <Banner href="/app/ayarlar/" icon={KeyRound} tone="blue">
@@ -192,15 +227,20 @@ interface TileItem {
 function ModuleGrid({ items }: { items: TileItem[] }) {
   return (
     <Section label="Modüller">
-      <div className={cx("grid grid-cols-2 gap-3", items.length === 4 ? "md:grid-cols-4" : "md:grid-cols-3")}>
-        {items.map(({ m, sub, alert }) => {
+      <div className={cx("grid grid-cols-2 gap-3", items.length % 3 === 0 ? "md:grid-cols-3" : "md:grid-cols-4")}>
+        {items.map(({ m, sub, alert }, i) => {
           const t = TILE[m];
           const Icon = t.icon;
+          // Tek sayıda karoda mobildeki son karo tüm satırı kaplar (boşluk kalmasın)
+          const wide = items.length % 2 === 1 && i === items.length - 1;
           return (
             <Link
               key={m}
               href={t.href}
-              className="group relative rounded-xl2 border border-line/70 bg-white p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-bar"
+              className={cx(
+                "group relative min-w-0 rounded-xl2 border border-line/70 bg-white p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-bar",
+                wide && "col-span-2 md:col-span-1",
+              )}
             >
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl text-white" style={{ background: t.color }}>
                 <Icon size={21} />
@@ -285,8 +325,133 @@ function byTarihDesc<T extends { tarih: string; id: number }>(a: T, b: T): numbe
   return b.id - a.id;
 }
 
+// ---------------------------------------------------------------- OSGB çalışanı: atandığı firmalar
+
+const TEHLIKE_TONE: Record<HazardClass, "green" | "orange" | "red"> = {
+  "AZ TEHLİKELİ": "green",
+  TEHLİKELİ: "orange",
+  "ÇOK TEHLİKELİ": "red",
+};
+const TEHLIKE_TEXT: Record<HazardClass, string> = {
+  "AZ TEHLİKELİ": "Az tehlikeli",
+  TEHLİKELİ: "Tehlikeli",
+  "ÇOK TEHLİKELİ": "Çok tehlikeli",
+};
+const GOREV_META: Record<AtananFirma["gorev"][number], { label: string; title: string; tone: "green" | "red" | "teal" }> = {
+  igu: { label: "İGU", title: "İş Sağlığı ve Güvenliği Uzmanı", tone: "green" },
+  ih: { label: "İH", title: "İşyeri Hekimi", tone: "red" },
+  dsp: { label: "DSP", title: "Diğer Sağlık Personeli", tone: "teal" },
+};
+
+function telHref(raw: string): { href: string; text: string } | null {
+  const t = (raw || "").trim();
+  if (!t) return null;
+  const n = normPhone(t);
+  if (n) return { href: `tel:+${n}`, text: prettyPhone(n) };
+  const digits = t.replace(/[^\d+]/g, "");
+  return digits ? { href: `tel:${digits}`, text: t } : null;
+}
+
+/**
+ * Hesap bir OSGB'nin İGU / İH / DSP çalışanıysa: OSGB'nin bu kişiye atadığı firmalar.
+ * Hesap bağımsızsa (osgb yok) ya da sunucu hata verirse hiç gösterilmez.
+ */
+function AtananFirmalar() {
+  const osgb = useSync((s) => s.osgb);
+  const backend = useSync((s) => s.backend);
+  const osgbId = osgb?.id ?? null;
+  const [data, setData] = useState<{ osgbAd: string | null; firmalar: AtananFirma[] } | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (osgbId == null || backend !== true) return;
+    let alive = true;
+    setFailed(false);
+    atamalarim()
+      .then((j) => {
+        if (alive) setData({ osgbAd: j.osgb?.ad ?? null, firmalar: Array.isArray(j.firmalar) ? j.firmalar : [] });
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [osgbId, backend]);
+
+  if (!osgb || backend !== true || failed) return null;
+  const osgbAd = data?.osgbAd || osgb.ad;
+  const firmalar = data?.firmalar ?? [];
+
+  return (
+    <Section label="Atandığınız firmalar" className="!mt-6" right={data && firmalar.length ? <span className="num text-[12.5px] font-bold text-muted">{firmalar.length} firma</span> : null}>
+      <Card padded={false}>
+        <div className="flex items-center gap-2.5 border-b border-line bg-paper/60 px-4 py-2.5 text-[13px] text-muted">
+          <Building2 size={16} className="shrink-0 text-brand-blue" />
+          <span className="min-w-0">
+            Bağlı olduğunuz OSGB: <span className="font-bold text-navy">{osgbAd}</span>
+          </span>
+        </div>
+        {!data ? (
+          <div className="space-y-2 p-4">
+            <div className="skeleton h-12 w-full rounded-xl" />
+            <div className="skeleton h-12 w-full rounded-xl" />
+          </div>
+        ) : firmalar.length === 0 ? (
+          <div className="p-4 text-[13.5px] text-muted">Henüz size atanmış firma yok. Atamaları OSGB yöneticiniz Müşteri Takip modülünden yapar.</div>
+        ) : (
+          firmalar.map((f, i) => {
+            const tel = telHref(f.telefon);
+            const hz = f.tehlike_sinifi || null;
+            return (
+              <div key={f.id} className={cx("flex items-start gap-3 px-4 py-3", i > 0 && "border-t border-line")}>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-soft-blue text-[13px] font-extrabold text-brand-blue" aria-hidden>
+                  {initials(f.ad)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="break-words text-[14px] font-bold leading-snug text-navy">{f.ad}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {hz ? <Badge tone={TEHLIKE_TONE[hz] ?? "gray"}>{TEHLIKE_TEXT[hz] ?? hz}</Badge> : null}
+                    {(f.gorev ?? []).map((g) =>
+                      GOREV_META[g] ? (
+                        <span key={g} title={GOREV_META[g].title}>
+                          <Badge tone={GOREV_META[g].tone}>{GOREV_META[g].label}</Badge>
+                        </span>
+                      ) : null,
+                    )}
+                  </div>
+                  <div className="mt-1 text-[12.5px] leading-relaxed text-muted">
+                    {[
+                      f.calisan_sayisi ? `${f.calisan_sayisi} çalışan` : null,
+                      f.yetkili ? `Yetkili: ${f.yetkili}` : null,
+                      f.il || null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "Ayrıntı girilmemiş"}
+                  </div>
+                </div>
+                {tel ? (
+                  <a
+                    href={tel.href}
+                    aria-label={`${f.ad} telefon: ${tel.text}`}
+                    title={tel.text}
+                    className="flex shrink-0 items-center gap-1.5 rounded-xl bg-soft-green px-2.5 py-2 text-[12.5px] font-bold text-success transition hover:brightness-[.97]"
+                  >
+                    <Phone size={14} />
+                    <span className="num hidden sm:inline">{tel.text}</span>
+                  </a>
+                ) : null}
+              </div>
+            );
+          })
+        )}
+      </Card>
+    </Section>
+  );
+}
+
 // =====================================================================================
-// İş güvenliği uzmanı
+// İş Sağlığı ve Güvenliği Uzmanı (İGU)
 // =====================================================================================
 
 export function UzmanDashboard() {
@@ -294,6 +459,7 @@ export function UzmanDashboard() {
   const riskRows = useStore((s) => s.riskRows);
   const denetimler = useStore((s) => s.denetimler);
   const olaylar = useStore((s) => s.olaylar);
+  const egitim = useEgitimOzet();
   const hello = useHello();
 
   const os = useMemo(() => olayStats(olaylar), [olaylar]);
@@ -332,6 +498,7 @@ export function UzmanDashboard() {
     { m: "risk", sub: `${analyses.length} analiz · ${riskRows.length} madde`, alert: risk.crit ? `${risk.crit} kritik` : undefined },
     { m: "denetim", sub: denetimler.length ? `${denetimler.length} denetim · ort. %${avgDen}` : "Kontrol listesi · PDF" },
     { m: "kaza", sub: `${os.kaza} kaza · ${os.ramak} ramak kala`, alert: os.bildirilmemis ? `${os.bildirilmemis} SGK` : undefined },
+    egitimTile(egitim.sub),
     { m: "mevzuat", sub: "6331 saha rehberi" },
     { m: "hesap", sub: "Uzman süresi · KSH" },
     { m: "asistan", sub: "Yapay zekâ İSG asistanı" },
@@ -373,7 +540,7 @@ export function UzmanDashboard() {
           {isEmpty ? (
             <Welcome
               icon={HardHat}
-              title="İSG uzmanı paneline hoş geldiniz"
+              title="İş Sağlığı ve Güvenliği Uzmanı paneline hoş geldiniz"
               text="İlk risk analizinizi yapay zekâ ile birkaç dakikada oluşturun ya da örnek verilerle modülleri keşfedin."
             >
               <ButtonLink href="/app/risk/yeni/" icon={WandSparkles}>
@@ -383,6 +550,7 @@ export function UzmanDashboard() {
             </Welcome>
           ) : null}
 
+          <AtananFirmalar />
           <QuickActions items={quick} />
           <ModuleGrid items={tiles} />
         </div>
@@ -468,14 +636,43 @@ export function UzmanDashboard() {
 }
 
 // =====================================================================================
-// İşyeri hekimi
+// İşyeri Hekimi (İH) ve Diğer Sağlık Personeli (DSP) — aynı pano, role göre metinler
 // =====================================================================================
 
-export function HekimDashboard() {
+type SaglikRol = "hekim" | "dsp";
+
+const SAGLIK_METIN: Record<SaglikRol, { welcomeTitle: string; welcomeText: string; hesapSub: string; muayeneSub: string }> = {
+  hekim: {
+    welcomeTitle: "İşyeri Hekimi paneline hoş geldiniz",
+    welcomeText:
+      "Çalışanların işe giriş ve periyodik muayenelerini kaydedin; bir sonraki muayene tarihi tehlike sınıfına göre otomatik hesaplanır.",
+    hesapSub: "Hekim süresi · KSH",
+    muayeneSub: "Sağlık gözetimi takibi",
+  },
+  dsp: {
+    welcomeTitle: "Diğer Sağlık Personeli paneline hoş geldiniz",
+    welcomeText:
+      "Periyodik muayene takvimini izleyin, ilk yardım ve iş kazası kayıtlarını tutun; yaklaşan ve geciken muayeneler burada listelenir.",
+    hesapSub: "DSP süresi · ilk yardımcı",
+    muayeneSub: "Muayene takibi",
+  },
+};
+
+/** İlkyardım Yönetmeliği: tehlike sınıfına göre her N çalışana en az 1 ilk yardımcı */
+const ILK_YARDIM_SATIRLARI: [string, string, string][] = [
+  ["Az tehlikeli", "her 20 çalışana 1", "#5CBD7D"],
+  ["Tehlikeli", "her 15 çalışana 1", "#F4772E"],
+  ["Çok tehlikeli", "her 10 çalışana 1", "#D6334C"],
+];
+
+function SaglikDashboard({ rol }: { rol: SaglikRol }) {
   const muayeneler = useStore((s) => s.muayeneler);
   const olaylar = useStore((s) => s.olaylar);
   const analyses = useStore((s) => s.analyses);
+  const egitim = useEgitimOzet();
   const hello = useHello();
+  const metin = SAGLIK_METIN[rol];
+  const dsp = rol === "dsp";
 
   const now = today();
   const ms = useMemo(() => muayeneStats(muayeneler, now), [muayeneler, now]);
@@ -484,34 +681,44 @@ export function HekimDashboard() {
   const yaklasanlar = useMemo(() => siraliSonraki(sonKayitlar(muayeneler)).slice(0, 6), [muayeneler]);
   const isEmpty = !muayeneler.length && !olaylar.length;
 
-  const quick: QuickItem[] = [
-    { label: "Muayene ekle", href: "/app/muayene/?yeni=1", icon: UserPlus },
-    { label: "Olay kaydı", href: "/app/kaza/?yeni=1", icon: Siren },
-    { label: "Mevzuat", href: "/app/mevzuat/", icon: BookOpen },
-    { label: "Asistan", href: "/app/asistan/", icon: Sparkles },
-  ];
+  const quick: QuickItem[] = dsp
+    ? [
+        { label: "Muayene ekle", href: "/app/muayene/?yeni=1", icon: UserPlus },
+        { label: "Kaza kaydı", href: "/app/kaza/?yeni=1", icon: Siren },
+        { label: "İlk yardımcı hesabı", href: "/app/hesap/", icon: HeartPulse },
+        { label: "Asistan", href: "/app/asistan/", icon: Sparkles },
+      ]
+    : [
+        { label: "Muayene ekle", href: "/app/muayene/?yeni=1", icon: UserPlus },
+        { label: "Olay kaydı", href: "/app/kaza/?yeni=1", icon: Siren },
+        { label: "Mevzuat", href: "/app/mevzuat/", icon: BookOpen },
+        { label: "Asistan", href: "/app/asistan/", icon: Sparkles },
+      ];
 
   const tiles: TileItem[] = [
     {
       m: "muayene",
-      sub: ms.calisan ? `${ms.calisan} çalışan · ${ms.yaklasan} yaklaşan` : "Sağlık gözetimi takibi",
+      sub: ms.calisan ? `${ms.calisan} çalışan · ${ms.yaklasan} yaklaşan` : metin.muayeneSub,
       alert: ms.gecikmis ? `${ms.gecikmis} gecikmiş` : undefined,
     },
-    { m: "kaza", sub: `${meslek} meslek hast. · ${os.kaza} kaza` },
+    dsp
+      ? { m: "kaza", sub: `${os.kaza} kaza · ${os.ramak} ramak kala`, alert: os.bildirilmemis ? `${os.bildirilmemis} SGK` : undefined }
+      : { m: "kaza", sub: `${meslek} meslek hast. · ${os.kaza} kaza` },
     { m: "risk", sub: analyses.length ? `${analyses.length} risk analizi` : "Risk değerlendirmesi" },
+    egitimTile(egitim.sub),
     { m: "mevzuat", sub: "6331 saha rehberi" },
-    { m: "hesap", sub: "Hekim süresi · KSH" },
+    { m: "hesap", sub: metin.hesapSub },
     { m: "asistan", sub: "Yapay zekâ İSG asistanı" },
   ];
 
   return (
     <div>
-      <Greeting rol="hekim" hello={hello} />
+      <Greeting rol={rol} hello={hello} />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-8">
           <Hero>
-            <HeroKicker>SAĞLIK GÖZETİMİ</HeroKicker>
+            <HeroKicker>{dsp ? "SAĞLIK GÖZETİMİ VE İLK YARDIM" : "SAĞLIK GÖZETİMİ"}</HeroKicker>
             <div className="mt-1 flex flex-wrap items-end gap-x-2.5">
               <div className="num text-[34px] font-extrabold leading-tight md:text-[42px]">{ms.calisan}</div>
               <div className="mb-1.5 text-[13.5px] font-semibold text-white/85">
@@ -521,7 +728,11 @@ export function HekimDashboard() {
             <div className="mt-4 grid grid-cols-3 gap-2.5">
               <HeroCell icon={AlarmClock} label="Gecikmiş" value={ms.gecikmis} />
               <HeroCell icon={CalendarClock} label="30 gün içinde" value={ms.yaklasan} />
-              <HeroCell icon={Stethoscope} label="Meslek hast. şüphesi" value={meslek} />
+              {dsp ? (
+                <HeroCell icon={Siren} label="İş kazası" value={os.kaza} />
+              ) : (
+                <HeroCell icon={Stethoscope} label="Meslek hast. şüphesi" value={meslek} />
+              )}
             </div>
           </Hero>
 
@@ -531,13 +742,14 @@ export function HekimDashboard() {
               {ms.gecikmis} çalışanın periyodik muayenesi gecikti.
             </Banner>
           ) : null}
+          {dsp && os.bildirilmemis > 0 ? (
+            <Banner href="/app/kaza/" icon={Siren} tone="orange">
+              {os.bildirilmemis} iş kazası SGK&apos;ya bildirilmedi (3 iş günü).
+            </Banner>
+          ) : null}
 
           {isEmpty ? (
-            <Welcome
-              icon={Stethoscope}
-              title="İşyeri hekimi paneline hoş geldiniz"
-              text="Çalışanların işe giriş ve periyodik muayenelerini kaydedin; bir sonraki muayene tarihi tehlike sınıfına göre otomatik hesaplanır."
-            >
+            <Welcome icon={dsp ? HeartPulse : Stethoscope} title={metin.welcomeTitle} text={metin.welcomeText}>
               <ButtonLink href="/app/muayene/?yeni=1" icon={UserPlus}>
                 İlk muayeneyi ekle
               </ButtonLink>
@@ -545,6 +757,7 @@ export function HekimDashboard() {
             </Welcome>
           ) : null}
 
+          <AtananFirmalar />
           <QuickActions items={quick} />
           <ModuleGrid items={tiles} />
         </div>
@@ -583,6 +796,31 @@ export function HekimDashboard() {
             </Card>
           </Section>
 
+          {dsp ? (
+            <Section label="İlk yardım">
+              <Card>
+                <div className="text-[14px] font-extrabold text-navy">İlk yardımcı sayısı</div>
+                <div className="mt-0.5 text-[12px] text-muted">İşyerinin tehlike sınıfına göre en az</div>
+                <div className="mt-3 space-y-2">
+                  {ILK_YARDIM_SATIRLARI.map(([k, v, c]) => (
+                    <div key={k} className="flex items-center gap-2.5 rounded-xl bg-paper px-3 py-2">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c }} aria-hidden />
+                      <span className="flex-1 text-[13px] font-semibold text-text">{k}</span>
+                      <span className="text-[13px] font-extrabold text-navy">{v}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-[12px] leading-relaxed text-muted">
+                  İlk yardım dolabı / çantası malzemelerini ve son kullanma tarihlerini düzenli kontrol edin; ilk yardımcı belgeleri 3 yılda bir
+                  güncelleme eğitimiyle yenilenir (İlkyardım Yönetmeliği).
+                </p>
+                <Link href="/app/hesap/" className="mt-2 inline-block text-[12.5px] font-bold text-brand-blue hover:underline">
+                  Firmaya göre hesapla →
+                </Link>
+              </Card>
+            </Section>
+          ) : null}
+
           <Section label="Periyot">
             <Card>
               <div className="text-[14px] font-extrabold text-navy">Periyodik muayene sıklığı</div>
@@ -608,25 +846,149 @@ export function HekimDashboard() {
   );
 }
 
+export function HekimDashboard() {
+  return <SaglikDashboard rol="hekim" />;
+}
+
+export function DspDashboard() {
+  return <SaglikDashboard rol="dsp" />;
+}
+
 // =====================================================================================
 // Öğrenci / uzman adayı
 // =====================================================================================
 
-/** "B" → "B Sınıfı"; diğer değerler olduğu gibi */
+/** "B" → "B Sınıfı"; eski kısaltmalı değerler uzun hâle; diğerleri olduğu gibi */
 function hedefText(h?: string): string {
   const t = (h || "").trim();
   if (!t) return "";
   if (/^[abc]$/i.test(t)) return `${t.toUpperCase()} Sınıfı`;
-  return t;
+  return t.replace("İSG Uzmanlığı", "İş Sağlığı ve Güvenliği Uzmanlığı");
 }
 
-/** "2026-11-15" veya "15.11.2026" → ISO */
-function parseTarih(s?: string): string | null {
-  const t = (s || "").trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
-  const m = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/.exec(t);
-  if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-  return null;
+type SinifDurum = { state: "hidden" } | { state: "loading" } | { state: "ok"; siniflar: SinifimItem[] };
+
+/** Öğrencinin katıldığı sınıflar (sunucu). Arka uç yoksa ya da hata olursa "hidden". */
+function useSiniflarim(): SinifDurum {
+  const backend = useSync((s) => s.backend);
+  const [st, setSt] = useState<SinifDurum>({ state: "loading" });
+  useEffect(() => {
+    if (backend !== true) return;
+    let alive = true;
+    siniflarim()
+      .then((l) => {
+        if (alive) setSt({ state: "ok", siniflar: Array.isArray(l) ? l : [] });
+      })
+      .catch(() => {
+        if (alive) setSt({ state: "hidden" });
+      });
+    return () => {
+      alive = false;
+    };
+  }, [backend]);
+  return backend === true ? st : { state: "hidden" };
+}
+
+function sonDuyuru(siniflar: SinifimItem[]): { metin: string; created_at: string; sinif: string } | null {
+  let son: { metin: string; created_at: string; sinif: string } | null = null;
+  for (const s of siniflar) {
+    const list = Array.isArray(s.mesajlar) ? s.mesajlar : [];
+    const m = list[list.length - 1];
+    if (m && (!son || m.created_at > son.created_at)) son = { metin: m.metin, created_at: m.created_at, sinif: s.ad };
+  }
+  return son;
+}
+
+function ilkSatir(t: string): string {
+  return (
+    (t || "")
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .find(Boolean) ?? ""
+  );
+}
+
+function OzetKart({ icon: Icon, color, title, href, cta, children }: { icon: LucideIcon; color: string; title: string; href: string; cta: string; children: ReactNode }) {
+  return (
+    <Card className="flex flex-col">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: color }}>
+          <Icon size={18} />
+        </span>
+        <div className="min-w-0 flex-1 text-[15px] font-extrabold text-navy">{title}</div>
+      </div>
+      <div className="mt-3 min-w-0 flex-1">{children}</div>
+      <Link href={href} className="mt-3 inline-flex items-center gap-1 self-start text-[13px] font-bold text-brand-blue hover:underline">
+        {cta} <ChevronRight size={15} />
+      </Link>
+    </Card>
+  );
+}
+
+function SinifimKart({ durum }: { durum: SinifDurum }) {
+  if (durum.state === "hidden") return null;
+  if (durum.state === "loading") return <div className="skeleton h-[168px] w-full rounded-xl2" />;
+  const { siniflar } = durum;
+  if (siniflar.length === 0) {
+    return (
+      <OzetKart icon={School} color={TILE.sinifim.color} title="Sınıfım" href="/app/sinifim/" cta="Sınıfa katıl">
+        <p className="text-[13.5px] leading-relaxed text-muted">
+          Henüz bir sınıfa katılmadınız. Eğitim kurumunuzun verdiği katılım koduyla sınıfa katılın; duyuruları buradan takip edin.
+        </p>
+      </OzetKart>
+    );
+  }
+  const son = sonDuyuru(siniflar);
+  return (
+    <OzetKart icon={School} color={TILE.sinifim.color} title="Sınıfım" href="/app/sinifim/" cta="Sınıfıma git">
+      <div className="text-[13px] text-muted">
+        <span className="num text-[20px] font-extrabold text-navy">{siniflar.length}</span> sınıfa katıldınız
+      </div>
+      {son ? (
+        <div className="mt-2.5 rounded-xl bg-paper px-3 py-2.5">
+          <div className="flex items-center gap-1.5 text-[11.5px] font-bold text-muted">
+            <Megaphone size={13} className="shrink-0 text-brand-blue" />
+            <span className="min-w-0 truncate">
+              Son duyuru · {son.sinif} · <span className="num">{fmtDate(son.created_at)}</span>
+            </span>
+          </div>
+          <div className="mt-1 line-clamp-2 break-words text-[13.5px] font-semibold text-ink">{ilkSatir(son.metin)}</div>
+        </div>
+      ) : (
+        <div className="mt-2.5 rounded-xl bg-paper px-3 py-2.5 text-[12.5px] text-muted">Henüz duyuru yok.</div>
+      )}
+    </OzetKart>
+  );
+}
+
+function EgitimKart() {
+  const e = useEgitimOzet();
+  return (
+    <OzetKart icon={Presentation} color={TILE.egitim.color} title="Eğitimler" href="/app/egitim/" cta={e.sertifika ? "Sertifikayı görüntüle" : e.ders ? "Eğitime devam et" : "Eğitime başla"}>
+      <div className="text-[13.5px] font-bold text-navy">Temel İş Sağlığı ve Güvenliği Eğitimi</div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <Badge tone={e.ders ? "blue" : "gray"} className="num">
+          {e.ders} ders tamamlandı
+        </Badge>
+        {e.sertifika ? (
+          <Badge tone="green">
+            <Award size={12} strokeWidth={2.6} /> Sertifika alındı
+          </Badge>
+        ) : e.puan != null ? (
+          <Badge tone="warn" className="num">
+            Son sınav %{e.puan}
+          </Badge>
+        ) : (
+          <Badge tone="gray">Sertifika yok</Badge>
+        )}
+      </div>
+      <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
+        {e.sertifika
+          ? `Sertifikanız ${fmtDate(e.kayit?.basarili_at)} tarihinde düzenlendi${e.kayit?.sertifika_no ? ` (No: ${e.kayit.sertifika_no})` : ""}.`
+          : "Dersleri tamamlayın, bitirme sınavını geçin ve sertifikanızı alın."}
+      </p>
+    </OzetKart>
+  );
 }
 
 function pctCls(p: number): string {
@@ -640,6 +1002,8 @@ export function OgrenciDashboard() {
   const { dersler, toplam, loading } = useQuestionBank();
   const profil = useProfil();
   const hello = useHello();
+  const egitim = useEgitimOzet();
+  const sinif = useSiniflarim();
 
   const best = useMemo(() => bestByDers(sonuclar), [sonuclar]);
   const recent = useMemo(() => [...sonuclar].sort((a, b) => b.id - a.id), [sonuclar]);
@@ -659,9 +1023,7 @@ export function OgrenciDashboard() {
   );
 
   const hedef = hedefText(profil.hedef_sinav);
-  const sinavIso = parseTarih(profil.sinav_tarihi);
-  const kalan = sinavIso && hello.iso ? gunKaldi(sinavIso, hello.iso) : null;
-  const kalanText = kalan == null || kalan < 0 ? "-" : kalan === 0 ? "Bugün" : `${kalan} gün kaldı`;
+  const sinifSayi = sinif.state === "ok" ? sinif.siniflar.length : null;
 
   const quick: QuickItem[] = [
     { label: "25 soruluk deneme", href: "/app/sinav/deneme/?n=25", icon: Zap },
@@ -672,6 +1034,8 @@ export function OgrenciDashboard() {
 
   const tiles: TileItem[] = [
     { m: "sinav", sub: loading ? "Soru bankası" : `${toplam} soru · ${dersler.length} ders` },
+    { m: "sinifim", sub: sinifSayi ? `${sinifSayi} sınıf · duyurular` : sinifSayi === 0 ? "Katılım koduyla katıl" : "Sınıf duyuruları" },
+    egitimTile(egitim.sub),
     { m: "mevzuat", sub: "6331 saha rehberi" },
     { m: "hesap", sub: "Uzman süresi · KSH" },
     { m: "asistan", sub: "Sorularını yapay zekâya sor" },
@@ -700,16 +1064,11 @@ export function OgrenciDashboard() {
             <div className="mt-4 grid grid-cols-3 gap-2.5">
               <HeroCell icon={Trophy} label="Çözülen deneme" value={sonuclar.length} />
               <HeroCell icon={BookOpen} label="Çalışılan ders" value={loading ? "…" : `${studied}/${dersler.length}`} />
-              <HeroCell icon={CalendarClock} label="Sınav tarihi" value={kalanText} />
+              <HeroCell icon={Award} label="Temel İSG eğitimi" value={egitim.sertifika ? "Sertifikalı" : `${egitim.ders} ders`} />
             </div>
           </Hero>
 
           <AiBanner />
-          {kalan != null && kalan >= 0 && kalan <= 30 ? (
-            <Banner href="/app/sinav/deneme/?n=50" icon={Timer} tone="orange">
-              {kalan === 0 ? "Sınav bugün — başarılar!" : `Sınava ${kalan} gün kaldı.`} 50 soruluk deneme ile kendinizi ölçün.
-            </Banner>
-          ) : null}
 
           {sonuclar.length === 0 ? (
             <Welcome
@@ -727,6 +1086,11 @@ export function OgrenciDashboard() {
               ) : null}
             </Welcome>
           ) : null}
+
+          <div className={cx("grid grid-cols-1 gap-4", sinif.state !== "hidden" && "sm:grid-cols-2")}>
+            <SinifimKart durum={sinif} />
+            <EgitimKart />
+          </div>
 
           <QuickActions items={quick} />
           <ModuleGrid items={tiles} />

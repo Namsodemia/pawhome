@@ -9,7 +9,7 @@ import type {
 } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import type { Effort, ModelId } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { currentEffort, currentModel, describeError } from "@/lib/ai/client";
+import { currentEffort, currentModel, describeError, newQueryId, refreshAiStatus } from "@/lib/ai/client";
 import { buildConversation, callAssistant, replyText, runAction, toolUses } from "@/lib/ai/assistant";
 
 /**
@@ -29,6 +29,8 @@ export interface PendingApproval {
   model: ModelId;
   effort: Effort;
   round: number;
+  /** Bu sorunun kimliği — araç turları da aynı sorgu sayılır */
+  queryId: string;
 }
 
 interface SessionState {
@@ -66,10 +68,10 @@ export async function sendMessage(question: string): Promise<void> {
   const messages = buildConversation(before, q);
   addChat("user", q);
   // Model ve effort tur boyunca sabit kalır (thinking blokları modele bağlıdır)
-  await runRound(messages, currentModel(), currentEffort(), 0);
+  await runRound(messages, currentModel(), currentEffort(), 0, newQueryId());
 }
 
-async function runRound(messages: BetaMessageParam[], model: ModelId, effort: Effort, round: number): Promise<void> {
+async function runRound(messages: BetaMessageParam[], model: ModelId, effort: Effort, round: number, queryId: string): Promise<void> {
   const my = ++turnSeq;
   const ac = new AbortController();
   controller = ac;
@@ -80,6 +82,7 @@ async function runRound(messages: BetaMessageParam[], model: ModelId, effort: Ef
       model,
       effort,
       signal: ac.signal,
+      queryId,
       onText: (t) => {
         partial = t;
         if (my === turnSeq) useAsistan.setState({ streamText: t });
@@ -101,7 +104,7 @@ async function runRound(messages: BetaMessageParam[], model: ModelId, effort: Ef
         addChat("system", "İşlem zinciri çok uzadı; isteği bölerek tekrar deneyin.");
         return;
       }
-      useAsistan.setState({ pending: { messages, response: res, tools, decisions: {}, model, effort, round } });
+      useAsistan.setState({ pending: { messages, response: res, tools, decisions: {}, model, effort, round, queryId } });
       return;
     }
     if (res.stop_reason === "max_tokens") addChat("system", "Yanıt uzunluk sınırına takıldı; soruyu daraltarak tekrar deneyin.");
@@ -116,6 +119,7 @@ async function runRound(messages: BetaMessageParam[], model: ModelId, effort: Ef
       addChat("system", describeError(e));
     }
   } finally {
+    refreshAiStatus();
     if (my === turnSeq) {
       controller = null;
       useAsistan.setState({ busy: false });
@@ -156,7 +160,7 @@ async function resolve(p: PendingApproval): Promise<void> {
   }
   // Yalnızca ekleme: önceki mesajlar + modelin yanıtı (değiştirilmeden) + tüm araç sonuçları tek kullanıcı mesajında
   const messages: BetaMessageParam[] = [...p.messages, { role: "assistant", content: p.response.content }, { role: "user", content: results }];
-  await runRound(messages, p.model, p.effort, p.round + 1);
+  await runRound(messages, p.model, p.effort, p.round + 1, p.queryId);
 }
 
 /** Akışı durdurur. */

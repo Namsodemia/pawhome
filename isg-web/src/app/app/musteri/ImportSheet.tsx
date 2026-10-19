@@ -7,18 +7,24 @@ import { FieldGroup } from "@/components/FieldGroup";
 import { toast } from "@/components/feedback";
 import { findKasaByName, useStore } from "@/lib/store";
 import { cx, money, norm, parseNum } from "@/lib/format";
-import { mergeGroups } from "@/lib/groups";
 import { exportTableXlsx, readTableFile } from "@/lib/table-xlsx";
-import type { Kasa, Kursiyer, KursiyerInput } from "@/lib/types";
+import type { Firma, FirmaInput, HazardClass, Kasa } from "@/lib/types";
+import { TehlikeBadge, hizmetSecenekleri } from "./ortak";
 
 // ---------------------------------------------------------------- sütun eşleştirme
 
 type FieldKey =
   | "full_name"
   | "tc"
+  | "yetkili"
   | "phone"
   | "email"
   | "city"
+  | "adres"
+  | "sgk"
+  | "nace"
+  | "tehlike"
+  | "calisan"
   | "group_name"
   | "list_no"
   | "total"
@@ -28,25 +34,33 @@ type FieldKey =
   | "remaining"
   | "kasa"
   | "date"
+  | "bitis"
   | "plasiyer"
   | "notes";
 
 const FIELDS: { key: FieldKey; label: string }[] = [
-  { key: "full_name", label: "Ad soyad *" },
-  { key: "tc", label: "TC kimlik no" },
+  { key: "full_name", label: "Firma adı *" },
+  { key: "tc", label: "Vergi / TC no" },
+  { key: "yetkili", label: "Yetkili kişi" },
   { key: "phone", label: "Telefon" },
   { key: "email", label: "E-posta" },
   { key: "city", label: "İl / ilçe" },
-  { key: "group_name", label: "Program / grup" },
-  { key: "list_no", label: "Dönem / liste" },
+  { key: "adres", label: "Adres" },
+  { key: "sgk", label: "SGK sicil no" },
+  { key: "nace", label: "NACE kodu" },
+  { key: "tehlike", label: "Tehlike sınıfı" },
+  { key: "calisan", label: "Çalışan sayısı" },
+  { key: "group_name", label: "Hizmet / grup" },
+  { key: "list_no", label: "Sözleşme no / dönem" },
   { key: "total", label: "Sözleşme tutarı" },
   { key: "cash", label: "Nakit tahsilat" },
   { key: "bank", label: "Banka tahsilat" },
   { key: "paid", label: "Ödenen (toplam)" },
   { key: "remaining", label: "Kalan" },
   { key: "kasa", label: "Kasa" },
-  { key: "date", label: "Tahsilat / fatura tarihi" },
-  { key: "plasiyer", label: "Plasiyer" },
+  { key: "date", label: "Sözleşme başlangıcı" },
+  { key: "bitis", label: "Sözleşme bitişi" },
+  { key: "plasiyer", label: "Satış temsilcisi" },
   { key: "notes", label: "Not" },
 ];
 
@@ -60,34 +74,57 @@ function headerKey(h: string): string {
     .trim();
 }
 
-/** Türkçe başlık adından alanı tahmin eder (sıra önemli: "tahsilat tarihi" → tarih, "eğitim ücreti" → tutar). */
+/**
+ * Türkçe başlık adından alanı tahmin eder. Firma listeleri ("Firma Adı", "Vergi No", "Yetkili", "Tehlike Sınıfı" …) ve
+ * eski kursiyer listeleri ("Ad Soyad", "TC", "Program" …) birlikte tanınır.
+ * Sıra önemli: "bitiş tarihi" → bitiş, "tahsilat tarihi" → tarih, "eğitim ücreti" → tutar, "yetkili adı soyadı" → yetkili.
+ */
 export function matchHeader(raw: string): FieldKey | null {
   const h = headerKey(raw);
   if (!h) return null;
   const has = (...w: string[]) => w.some((x) => h.includes(x));
   const is = (...w: string[]) => w.includes(h);
-  if (has("tarih")) return "date";
+  if (has("bitis")) return "bitis";
+  if (has("tarih", "baslangic")) return "date";
   if (has("kasa", "tahsil eden", "parayi alan")) return "kasa";
   if (has("nakit")) return "cash";
   if (has("banka", "eft", "havale")) return "bank";
   if (has("kalan", "borc", "bakiye")) return "remaining";
   if (has("odeme sekli", "odeme araci", "odeme turu", "odeme yontemi", "odeme durumu")) return null;
   if (has("tahsil", "odenen", "odedigi", "odeme")) return "paid";
+  if (has("tehlike")) return "tehlike";
+  if (has("calisan sayisi", "personel sayisi", "isci sayisi", "kisi sayisi") || is("calisan", "personel", "isci")) return "calisan";
+  if (has("sicil", "sgk")) return "sgk";
+  if (has("nace")) return "nace";
+  if (has("vergi dairesi")) return null;
+  if (has("vergi", "vkn") || is("tc", "tckn", "tcno", "t c", "kimlik") || h.startsWith("tc ") || has("kimlik")) return "tc";
+  if (has("sozlesme no", "sozlesme numarasi")) return "list_no";
   if (has("sozlesme", "ucret", "tutar", "fiyat", "bedel") || is("toplam")) return "total";
-  if (is("tc", "tckn", "tcno", "t c", "kimlik") || h.startsWith("tc ") || has("kimlik")) return "tc";
   if (has("telefon", "gsm", "cep") || is("tel") || h.startsWith("tel ")) return "phone";
   if (has("posta", "mail")) return "email";
   if (has("plasiyer", "temsilci", "satici", "referans")) return "plasiyer";
+  if (has("yetkili", "irtibat", "ilgili kisi", "muhatap")) return "yetkili";
   if (is("not", "notlar", "aciklama", "aciklamalar") || h.startsWith("not ")) return "notes";
+  if (has("adres")) return "adres";
   if (has("donem", "liste")) return "list_no";
-  if (has("program", "grup", "egitim", "brans") || is("kurs", "kurs adi", "sinif")) return "group_name";
-  if (is("il", "ilce", "il ilce", "sehir", "adres", "il ve ilce") || has("sehir")) return "city";
+  if (has("program", "grup", "egitim", "brans", "hizmet") || is("kurs", "kurs adi", "sinif")) return "group_name";
+  if (is("il", "ilce", "il ilce", "sehir", "il ve ilce") || has("sehir")) return "city";
   if (
-    has("ad soyad", "adi soyadi", "ad soyadi", "adsoyad", "isim", "kursiyer", "musteri", "ogrenci", "katilimci", "unvan") ||
-    is("ad", "adi", "ad ve soyad", "adi ve soyadi")
+    has("ad soyad", "adi soyadi", "ad soyadi", "adsoyad", "isim", "kursiyer", "musteri", "ogrenci", "katilimci", "unvan", "firma", "sirket", "isyeri") ||
+    is("ad", "adi", "ad ve soyad", "adi ve soyadi", "kurum", "kurum adi")
   )
     return "full_name";
   return null;
+}
+
+/** "Çok tehlikeli" / "ÇT" / "az tehlikeli" / "Tehlikeli" → sınıf */
+function parseTehlike(s: string): HazardClass | "" {
+  const n = norm(s).replace(/[^a-z]/g, "");
+  if (!n) return "";
+  if (n.startsWith("cok") || n === "ct") return "ÇOK TEHLİKELİ";
+  if (n.startsWith("az") || n === "at") return "AZ TEHLİKELİ";
+  if (n.includes("tehlikeli") || n === "t") return "TEHLİKELİ";
+  return "";
 }
 
 function autoMap(header: string[]): { mapping: Mapping; hits: number } {
@@ -156,7 +193,7 @@ const SKIP_NAMES = new Set(["toplam", "genel toplam", "total", "ara toplam"]);
 
 interface Cand {
   line: number;
-  input: KursiyerInput | null;
+  input: FirmaInput | null;
   kasaName: string;
   kasaMissing: boolean;
   status: "ok" | "dup" | "bad";
@@ -168,7 +205,7 @@ function buildCandidates(
   headerIdx: number,
   mapping: Mapping,
   defaults: { group: string; kasaId: number; listNo: string },
-  existing: Kursiyer[],
+  existing: Firma[],
   kasalar: Kasa[],
 ): Cand[] {
   const get = (r: string[], k: FieldKey) => (mapping[k] >= 0 ? (r[mapping[k]] ?? "").trim() : "");
@@ -189,11 +226,11 @@ function buildCandidates(
     const line = i + 1;
     const full_name = get(r, "full_name").replace(/\s+/g, " ");
     const base = { line, input: null, kasaName: "", kasaMissing: false };
-    if (!full_name) return { ...base, status: "bad", reason: "Ad soyad yok" };
+    if (!full_name) return { ...base, status: "bad", reason: "Firma adı yok" };
     if (SKIP_NAMES.has(norm(full_name))) return { ...base, status: "bad", reason: "Toplam satırı" };
 
     const tcRaw = get(r, "tc").replace(/\D/g, "");
-    const tc = tcRaw.length === 11 ? tcRaw : "";
+    const tc = tcRaw.length === 10 || tcRaw.length === 11 ? tcRaw : "";
     let total = parseNum(get(r, "total"));
     let cash = parseNum(get(r, "cash"));
     const bank = parseNum(get(r, "bank"));
@@ -210,7 +247,8 @@ function buildCandidates(
     const kasa_id = found?.id ?? (defaults.kasaId || null);
     const phone = get(r, "phone");
 
-    const input: KursiyerInput = {
+    const calisanRaw = get(r, "calisan").replace(/\D/g, "");
+    const input: FirmaInput = {
       full_name,
       tc,
       phone,
@@ -226,6 +264,13 @@ function buildCandidates(
       plasiyer: get(r, "plasiyer"),
       notes: get(r, "notes"),
       invoice_issue_date: toIsoDate(get(r, "date")),
+      yetkili: get(r, "yetkili"),
+      tehlike_sinifi: parseTehlike(get(r, "tehlike")),
+      calisan_sayisi: calisanRaw ? Number(calisanRaw) : 0,
+      nace_kodu: get(r, "nace"),
+      sgk_sicil: get(r, "sgk"),
+      adres: get(r, "adres"),
+      sozlesme_bitis: toIsoDate(get(r, "bitis")),
     };
     const out = { ...base, input, kasaName: found?.title ?? kasaName, kasaMissing: !!kasaName && !found };
     if (cash + bank > total + 0.005) return { ...out, status: "bad", reason: "Tahsilat > tutar" };
@@ -235,39 +280,41 @@ function buildCandidates(
     if ((tcKey && tcSeen.has(tcKey)) || nameSeen.has(nk)) return { ...out, status: "dup", reason: "Zaten kayıtlı" };
     if (tcKey) tcSeen.add(tcKey);
     nameSeen.add(nk);
-    return { ...out, status: "ok", reason: tcRaw && !tc ? "TC 11 hane değil, boş bırakıldı" : "" };
+    return { ...out, status: "ok", reason: tcRaw && !tc ? "Vergi / TC no 10 ya da 11 hane değil, boş bırakıldı" : "" };
   });
 }
 
 // ---------------------------------------------------------------- şablon
 
-const TEMPLATE_HEADERS = [
-  "Ad Soyad",
-  "TC",
-  "Telefon",
-  "E-posta",
-  "İl / İlçe",
-  "Program",
-  "Dönem",
-  "Sözleşme Tutarı",
-  "Nakit",
-  "Banka",
-  "Kasa",
-  "Tarih",
-  "Plasiyer",
-  "Not",
+const TEMPLATE: [header: string, width: number, kind: "text" | "money"][] = [
+  ["Firma Adı", 32, "text"],
+  ["Vergi / TC No", 14, "text"],
+  ["Yetkili", 20, "text"],
+  ["Telefon", 16, "text"],
+  ["E-posta", 24, "text"],
+  ["İl / İlçe", 18, "text"],
+  ["Adres", 32, "text"],
+  ["SGK Sicil No", 22, "text"],
+  ["NACE Kodu", 11, "text"],
+  ["Tehlike Sınıfı", 15, "text"],
+  ["Çalışan Sayısı", 10, "text"],
+  ["Hizmet", 20, "text"],
+  ["Sözleşme No / Dönem", 16, "text"],
+  ["Başlangıç Tarihi", 12, "text"],
+  ["Bitiş Tarihi", 12, "text"],
+  ["Sözleşme Tutarı", 16, "money"],
+  ["Nakit", 12, "money"],
+  ["Banka", 12, "money"],
+  ["Kasa", 16, "text"],
+  ["Satış Temsilcisi", 16, "text"],
+  ["Not", 30, "text"],
 ];
 
 async function downloadTemplate() {
   await exportTableXlsx<string[]>({
-    filename: "isgora_kursiyer_sablonu.xlsx",
-    sheet: "Kursiyerler",
-    columns: TEMPLATE_HEADERS.map((h, i) => ({
-      header: h,
-      width: [26, 14, 16, 24, 16, 26, 14, 16, 12, 12, 16, 12, 14, 30][i],
-      kind: i >= 7 && i <= 9 ? ("money" as const) : ("text" as const),
-      value: (r: string[]) => r[i] ?? null,
-    })),
+    filename: "isgora_firma_sablonu.xlsx",
+    sheet: "Firmalar",
+    columns: TEMPLATE.map(([header, width, kind], i) => ({ header, width, kind, value: (r: string[]) => r[i] ?? null })),
     rows: [],
   });
 }
@@ -278,7 +325,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
   const kursiyerler = useStore((s) => s.kursiyerler);
   const kasalar = useStore((s) => s.kasalar);
   const activeKasalar = useMemo(() => kasalar.filter((k) => k.is_active), [kasalar]);
-  const groups = useMemo(() => mergeGroups(kursiyerler.filter((k) => k.is_active).map((k) => k.group_name)), [kursiyerler]);
+  const groups = useMemo(() => hizmetSecenekleri(kursiyerler.filter((k) => k.is_active).map((k) => k.group_name)), [kursiyerler]);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState("");
@@ -356,7 +403,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
         st.addKursiyer(c.input);
         n += 1;
       }
-      toast(`${n} kayıt içe aktarıldı.${dupCount ? ` ${dupCount} mükerrer atlandı.` : ""}${badCount ? ` ${badCount} satır geçersiz.` : ""}`);
+      toast(`${n} firma içe aktarıldı.${dupCount ? ` ${dupCount} mükerrer atlandı.` : ""}${badCount ? ` ${badCount} satır geçersiz.` : ""}`);
       onClose();
     } catch (e) {
       toast(`İçe aktarma tamamlanamadı: ${(e as Error).message}`, "error");
@@ -396,7 +443,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
             Vazgeç
           </Button>
           <Button icon={Upload} onClick={runImport} loading={busy && rows.length > 0} disabled={!okRows.length}>
-            {okRows.length ? `${okRows.length} kaydı içe aktar` : "İçe aktar"}
+            {okRows.length ? `${okRows.length} firmayı içe aktar` : "İçe aktar"}
           </Button>
         </div>
       }
@@ -426,7 +473,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand text-white shadow-fab">
               <FileSpreadsheet size={26} />
             </span>
-            <div className="mt-3 text-[16px] font-extrabold text-navy">Excel veya CSV dosyası seçin</div>
+            <div className="mt-3 text-[16px] font-extrabold text-navy">Firma listenizi (Excel / CSV) seçin</div>
             <div className="mt-1 max-w-md text-[13px] leading-relaxed text-muted">
               Dosyayı buraya sürükleyip bırakabilirsiniz. Sütunlar başlık adlarından otomatik eşleştirilir; önizlemeyi görmeden hiçbir kayıt eklenmez.
             </div>
@@ -435,8 +482,9 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
             </Button>
           </div>
           <div className="rounded-2xl bg-soft-blue px-4 py-3 text-[12.5px] leading-relaxed text-brand-blue">
-            <b>Tanınan başlıklar:</b> Ad Soyad / Adı Soyadı, TC, Telefon, E-posta, İl / İlçe, Program / Grup, Dönem / Liste, Tutar / Sözleşme, Nakit, Banka,
-            Ödenen, Kalan, Kasa, Tarih, Plasiyer, Not. Nakit/Banka sütunu yoksa “Ödenen” (ya da Tutar − Kalan) nakit tahsilat sayılır.
+            <b>Tanınan başlıklar:</b> Firma / Unvan (ya da Ad Soyad), Vergi No / TC, Yetkili, Telefon, E-posta, İl / İlçe, Adres, SGK Sicil No, NACE Kodu,
+            Tehlike Sınıfı, Çalışan Sayısı, Hizmet / Program, Sözleşme No / Dönem, Tutar / Sözleşme, Nakit, Banka, Ödenen, Kalan, Kasa, Başlangıç / Bitiş
+            Tarihi, Satış Temsilcisi / Plasiyer, Not. Nakit/Banka sütunu yoksa “Ödenen” (ya da Tutar − Kalan) nakit tahsilat sayılır.
           </div>
           <Button kind="secondary" small icon={Download} onClick={() => void downloadTemplate().catch((e) => toast((e as Error).message, "error"))}>
             Boş şablonu indir
@@ -454,9 +502,9 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FieldGroup label="Varsayılan program" hint="Satırda program yoksa bu kullanılır.">
+            <FieldGroup label="Varsayılan hizmet" hint="Satırda hizmet yoksa bu kullanılır.">
               <select value={defGroup} onChange={(e) => setDefGroup(e.target.value)} className="field cursor-pointer !py-2.5 text-[14px]">
-                <option value="">(Programsız bırak)</option>
+                <option value="">(Hizmet belirtme)</option>
                 {groups.map((g) => (
                   <option key={g} value={g}>
                     {g}
@@ -464,8 +512,8 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
                 ))}
               </select>
             </FieldGroup>
-            <Field label="Varsayılan dönem / liste" hint="Satırda dönem yoksa bu yazılır.">
-              <Input value={defList} onChange={(e) => setDefList(e.target.value)} placeholder="Örn. Aralık 2026" className="!py-2.5 text-[14px]" />
+            <Field label="Varsayılan sözleşme no / dönem" hint="Satırda dönem yoksa bu yazılır.">
+              <Input value={defList} onChange={(e) => setDefList(e.target.value)} placeholder="Örn. 2026 yıllık" className="!py-2.5 text-[14px]" />
             </Field>
             <FieldGroup
               label="Varsayılan kasa (kim tahsil etti?)"
@@ -484,7 +532,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
               <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {FIELDS.map((f) => (
                   <label key={f.key} className="flex items-center gap-2">
-                    <span className="w-[130px] shrink-0 text-[12.5px] font-bold text-navy">{f.label}</span>
+                    <span className="w-[140px] shrink-0 text-[12.5px] font-bold text-navy">{f.label}</span>
                     <select
                       value={mapping[f.key]}
                       onChange={(e) => setMap(f.key, Number(e.target.value))}
@@ -507,7 +555,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
                     {f.label.replace(" *", "")} ← {colLetter(mapping[f.key])}
                   </Badge>
                 ))}
-                {mapping.full_name < 0 ? <Badge tone="red">Ad soyad sütunu seçilmedi</Badge> : null}
+                {mapping.full_name < 0 ? <Badge tone="red">Firma adı sütunu seçilmedi</Badge> : null}
               </div>
             )}
           </div>
@@ -531,12 +579,13 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
               </span>
             </div>
             <div className="overflow-x-auto rounded-2xl border border-line">
-              <table className="w-full min-w-[720px] text-left text-[12.5px]">
+              <table className="w-full min-w-[820px] text-left text-[12.5px]">
                 <thead className="bg-navy text-[10.5px] uppercase tracking-wider text-white">
                   <tr>
                     <th className="px-2.5 py-2 font-bold">#</th>
-                    <th className="px-2.5 py-2 font-bold">Ad soyad</th>
-                    <th className="px-2.5 py-2 font-bold">Program</th>
+                    <th className="px-2.5 py-2 font-bold">Firma</th>
+                    <th className="px-2.5 py-2 font-bold">Hizmet</th>
+                    <th className="px-2.5 py-2 font-bold">Tehlike</th>
                     <th className="px-2.5 py-2 font-bold">Telefon</th>
                     <th className="px-2.5 py-2 text-right font-bold">Tutar</th>
                     <th className="px-2.5 py-2 text-right font-bold">Tahsil</th>
@@ -548,8 +597,9 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
                   {cands.slice(0, 20).map((c) => (
                     <tr key={c.line} className={cx("border-t border-line", c.status !== "ok" && "bg-paper/70 text-muted")}>
                       <td className="num px-2.5 py-2 text-muted">{c.line}</td>
-                      <td className="px-2.5 py-2 font-bold text-ink">{c.input?.full_name || "—"}</td>
+                      <td className="max-w-[220px] truncate px-2.5 py-2 font-bold text-ink">{c.input?.full_name || "—"}</td>
                       <td className="max-w-[160px] truncate px-2.5 py-2">{c.input?.group_name || "—"}</td>
+                      <td className="px-2.5 py-2">{c.input?.tehlike_sinifi ? <TehlikeBadge h={c.input.tehlike_sinifi} /> : "—"}</td>
                       <td className="num px-2.5 py-2">{c.input?.phone || "—"}</td>
                       <td className="num px-2.5 py-2 text-right">{c.input ? money(c.input.total_amount) : "—"}</td>
                       <td className="num px-2.5 py-2 text-right">{c.input ? money(c.input.cash_amount + c.input.bank_amount) : "—"}</td>
@@ -579,7 +629,7 @@ export function ImportSheet({ onClose }: { onClose: () => void }) {
               </table>
             </div>
             <div className="mt-2 text-[12px] text-muted">
-              Mükerrer: aynı programda aynı TC, ya da aynı ad + telefon (telefon yoksa aynı ad + program) ile kayıtlı kişiler atlanır.
+              Mükerrer: aynı hizmette aynı vergi / TC no, ya da aynı firma adı + telefon (telefon yoksa aynı ad + hizmet) ile kayıtlı firmalar atlanır.
             </div>
           </div>
         </div>

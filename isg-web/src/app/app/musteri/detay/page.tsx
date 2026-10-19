@@ -2,26 +2,31 @@
 
 import Link from "next/link";
 import { useMemo, useState, type ReactNode, Suspense } from "react";
+import type { LucideIcon } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowDownLeft,
   Banknote,
+  Building2,
   CircleCheck,
+  FileSignature,
+  Mail,
   MessageCircle,
-  MessagesSquare,
   Pencil,
   Phone,
   Trash2,
-  UserX,
+  UserPlus,
+  UsersRound,
   Wallet,
 } from "lucide-react";
-import { Badge, Button, ButtonLink, Card, Chips, Empty, Field, Input, PageHeader, ProgressBar, Segment, Loading } from "@/components/ui";
+import { Avatar, Badge, Button, ButtonLink, Card, Chips, Empty, Field, Input, PageHeader, ProgressBar, Segment, Loading } from "@/components/ui";
 import { FieldGroup } from "@/components/FieldGroup";
 import { confirmDialog, toast } from "@/components/feedback";
 import { useStore } from "@/lib/store";
-import { cx, fmtDate, fmtDateTime, money, parseNum, pct } from "@/lib/format";
-import type { Kursiyer } from "@/lib/types";
-import { KursiyerForm } from "../KursiyerForm";
+import { cx, fmtDate, fmtDateTime, money, parseNum, pct, today } from "@/lib/format";
+import type { Firma } from "@/lib/types";
+import { FirmaForm } from "../FirmaForm";
+import { ATAMALAR, ROL_RENK, TEHLIKE_ETIKET, TehlikeBadge, isTehlike, kalanGun, rolEtiket, useEkip } from "../ortak";
 
 const ACTION_CLS = "inline-flex h-9 select-none items-center justify-center gap-2 rounded-2xl px-3.5 text-[13px] font-bold transition active:scale-[.98]";
 
@@ -33,13 +38,13 @@ function waNumber(phone: string): string {
   return d;
 }
 
-function KursiyerDetailPageView() {
+function FirmaDetailPageView() {
   const params = { id: useSearchParams().get("id") ?? "" };
   const kid = Number(params?.id);
-  return <KursiyerDetail key={kid} kid={kid} />;
+  return <FirmaDetail key={kid} kid={kid} />;
 }
 
-function KursiyerDetail({ kid }: { kid: number }) {
+function FirmaDetail({ kid }: { kid: number }) {
   const router = useRouter();
   const k = useStore((s) => s.kursiyerler.find((x) => x.id === kid));
   const kasalar = useStore((s) => s.kasalar);
@@ -62,12 +67,12 @@ function KursiyerDetail({ kid }: { kid: number }) {
       <div>
         <PageHeader title="Kayıt bulunamadı" back="/app/musteri" />
         <Empty
-          icon={UserX}
-          title="Bu kursiyer bulunamadı"
+          icon={Building2}
+          title="Bu firma bulunamadı"
           text="Kayıt silinmiş ya da bağlantı hatalı olabilir."
           action={
             <ButtonLink href="/app/musteri" kind="secondary">
-              Müşteri listesine dön
+              Firma listesine dön
             </ButtonLink>
           }
         />
@@ -79,18 +84,19 @@ function KursiyerDetail({ kid }: { kid: number }) {
   const collected = Math.round((k.total_amount - k.remaining_amount) * 100) / 100;
   const debt = k.remaining_amount > 0;
   const cpct = pct(collected, k.total_amount);
+  const gun = kalanGun(k.sozlesme_bitis, today());
 
   const remove = async () => {
     const ok = await confirmDialog({
-      title: "Kaydı sil",
-      text: `${k.full_name} ve bağlı kasa hareketi silinecek.${classes.length ? " Sınıf üyelikleri kalır ancak kursiyer bağlantısı kaldırılır." : ""}`,
+      title: "Firmayı sil",
+      text: `${k.full_name} ve bağlı kasa hareketi silinecek.${classes.length ? " Sınıf üyelikleri kalır ancak firma bağlantısı kaldırılır." : ""}`,
       okLabel: "Sil",
       danger: true,
     });
     if (!ok) return;
     setGone(true);
     useStore.getState().deleteKursiyer(kid);
-    toast("Kayıt silindi.");
+    toast("Firma silindi.");
     router.push("/app/musteri");
   };
 
@@ -103,7 +109,9 @@ function KursiyerDetail({ kid }: { kid: number }) {
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {k.group_name ? <Badge tone="blue">{k.group_name}</Badge> : null}
             {k.list_no ? <Badge tone="gray">{k.list_no}</Badge> : null}
+            <TehlikeBadge h={k.tehlike_sinifi} className="!py-1" />
             <Badge tone={debt ? "red" : "green"}>{debt ? "BORÇLU" : "ÖDENDİ"}</Badge>
+            {gun !== null && gun < 0 ? <Badge tone="red">Sözleşme sona erdi</Badge> : gun !== null && gun <= 30 ? <Badge tone="warn">Sözleşme bitimine {gun} gün</Badge> : null}
           </div>
         }
         actions={
@@ -116,38 +124,31 @@ function KursiyerDetail({ kid }: { kid: number }) {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
         <div className="min-w-0 space-y-5">
           <Card>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-              <MiniStat label="Sözleşme" value={money(k.total_amount)} />
-              <MiniStat label="Tahsil" value={money(collected)} tone="text-success" />
-              <MiniStat label="Kalan" value={money(k.remaining_amount)} tone={debt ? "text-danger" : "text-success"} highlight={debt} />
-              <MiniStat label="Nakit" value={money(k.cash_amount)} />
-              <MiniStat label="Banka" value={money(k.bank_amount)} />
-              <MiniStat label="Tahsilat oranı" value={`%${cpct}`} tone="text-brand-blue">
-                <ProgressBar value={cpct} className="mt-1.5" />
-              </MiniStat>
-            </div>
-
-            <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-2.5 text-[13.5px] sm:grid-cols-2">
+            <CardTitle icon={Building2} title="Firma bilgileri" />
+            <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2.5 text-[13.5px] sm:grid-cols-2">
+              <Line label="Yetkili kişi">{k.yetkili || "-"}</Line>
               <Line label="Telefon" mono>
                 {k.phone || "-"}
               </Line>
-              <Line label="TC" mono>
+              <Line label="E-posta">{k.email ? <a href={`mailto:${k.email}`} className="text-brand-blue hover:underline">{k.email}</a> : "-"}</Line>
+              <Line label={k.tc.length === 11 ? "TC kimlik no" : k.tc.length === 10 ? "Vergi no" : "Vergi / TC no"} mono>
                 {k.tc || "-"}
               </Line>
-              <Line label="E-posta">{k.email ? <a href={`mailto:${k.email}`} className="text-brand-blue hover:underline">{k.email}</a> : "-"}</Line>
               <Line label="İl / ilçe">{k.city || "-"}</Line>
-              <Line label="Kasa">{kasaTitle}</Line>
-              <Line label="Tarih" mono>
-                {fmtDate(k.invoice_issue_date)}
+              <Line label="SGK sicil no" mono>
+                {k.sgk_sicil || "-"}
               </Line>
-              <Line label="Plasiyer">{k.plasiyer || "-"}</Line>
-              <Line label="Kayıt" mono>
-                {fmtDateTime(k.created_at)}
+              <Line label="NACE kodu" mono>
+                {k.nace_kodu || "-"}
               </Line>
-              {k.notes ? (
+              <Line label="Tehlike sınıfı">{isTehlike(k.tehlike_sinifi) ? TEHLIKE_ETIKET[k.tehlike_sinifi] : "-"}</Line>
+              <Line label="Çalışan sayısı" mono>
+                {k.calisan_sayisi ? k.calisan_sayisi.toLocaleString("tr-TR") : "-"}
+              </Line>
+              {k.adres ? (
                 <div className="sm:col-span-2">
-                  <dt className="text-[11.5px] font-bold uppercase tracking-wider text-muted">Not</dt>
-                  <dd className="mt-1 whitespace-pre-line rounded-2xl bg-paper px-3.5 py-2.5 text-text">{k.notes}</dd>
+                  <dt className="text-[11.5px] font-bold uppercase tracking-wider text-muted">Adres</dt>
+                  <dd className="mt-1 whitespace-pre-line text-ink">{k.adres}</dd>
                 </div>
               ) : null}
             </dl>
@@ -168,11 +169,54 @@ function KursiyerDetail({ kid }: { kid: number }) {
                   </a>
                 </>
               ) : null}
+              {k.email ? (
+                <a href={`mailto:${k.email}`} className={cx(ACTION_CLS, "bg-paper text-navy hover:bg-line/60")}>
+                  <Mail size={15} strokeWidth={2.4} /> E-posta
+                </a>
+              ) : null}
               <Button kind="ghost" small icon={Pencil} onClick={() => setEditKey(Date.now())}>
                 Düzenle
               </Button>
             </div>
           </Card>
+
+          <Card>
+            <CardTitle icon={FileSignature} title="Sözleşme ve tahsilat" />
+            <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+              <MiniStat label="Sözleşme" value={money(k.total_amount)} />
+              <MiniStat label="Tahsil" value={money(collected)} tone="text-success" />
+              <MiniStat label="Kalan" value={money(k.remaining_amount)} tone={debt ? "text-danger" : "text-success"} highlight={debt} />
+              <MiniStat label="Nakit" value={money(k.cash_amount)} />
+              <MiniStat label="Banka" value={money(k.bank_amount)} />
+              <MiniStat label="Tahsilat oranı" value={`%${cpct}`} tone="text-brand-blue">
+                <ProgressBar value={cpct} className="mt-1.5" />
+              </MiniStat>
+            </div>
+
+            <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-2.5 text-[13.5px] sm:grid-cols-2">
+              <Line label="Hizmet">{k.group_name || "-"}</Line>
+              <Line label="Sözleşme no / dönem">{k.list_no || "-"}</Line>
+              <Line label="Başlangıç" mono>
+                {fmtDate(k.invoice_issue_date)}
+              </Line>
+              <Line label="Bitiş" mono>
+                {fmtDate(k.sozlesme_bitis)}
+              </Line>
+              <Line label="Kasa">{kasaTitle}</Line>
+              <Line label="Satış temsilcisi">{k.plasiyer || "-"}</Line>
+              <Line label="Kayıt" mono>
+                {fmtDateTime(k.created_at)}
+              </Line>
+              {k.notes ? (
+                <div className="sm:col-span-2">
+                  <dt className="text-[11.5px] font-bold uppercase tracking-wider text-muted">Not</dt>
+                  <dd className="mt-1 whitespace-pre-line rounded-2xl bg-paper px-3.5 py-2.5 text-text">{k.notes}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </Card>
+
+          <EkipKarti k={k} onEdit={() => setEditKey(Date.now())} />
 
           <Card>
             <div className="section-label">Kasa kaydı</div>
@@ -200,12 +244,12 @@ function KursiyerDetail({ kid }: { kid: number }) {
             )}
           </Card>
 
-          <Card>
-            <div className="flex items-center justify-between gap-3">
-              <div className="section-label">Sınıflar</div>
-              <span className="num text-[11.5px] text-muted">{classes.length}</span>
-            </div>
-            {classes.length ? (
+          {classes.length ? (
+            <Card>
+              <div className="flex items-center justify-between gap-3">
+                <div className="section-label">Sınıflar</div>
+                <span className="num text-[11.5px] text-muted">{classes.length}</span>
+              </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {classes.map((s) => (
                   <Link
@@ -218,15 +262,8 @@ function KursiyerDetail({ kid }: { kid: number }) {
                   </Link>
                 ))}
               </div>
-            ) : (
-              <div className="mt-2 flex items-center gap-2 text-[13px] text-muted">
-                <MessagesSquare size={16} /> Bu kişi henüz bir sınıfa eklenmemiş.{" "}
-                <Link href="/app/siniflar" className="font-bold text-brand-blue hover:underline">
-                  Sınıflar
-                </Link>
-              </div>
-            )}
-          </Card>
+            </Card>
+          ) : null}
         </div>
 
         <div className="space-y-4 lg:sticky lg:top-24">
@@ -246,14 +283,101 @@ function KursiyerDetail({ kid }: { kid: number }) {
             </Card>
           )}
           <Button kind="danger" block icon={Trash2} onClick={remove}>
-            Kaydı sil
+            Firmayı sil
           </Button>
           <div className="px-1 text-center text-[11.5px] leading-relaxed text-muted">Silme işlemi bağlı kasa hareketini de kaldırır.</div>
         </div>
       </div>
 
-      {editKey ? <KursiyerForm key={editKey} id={kid} onClose={() => setEditKey(null)} /> : null}
+      {editKey ? <FirmaForm key={editKey} id={kid} onClose={() => setEditKey(null)} /> : null}
     </div>
+  );
+}
+
+function CardTitle({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
+  return (
+    <div className="flex items-center gap-2 text-[14px] font-extrabold text-navy">
+      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brandSoft text-brand-blue">
+        <Icon size={16} />
+      </span>
+      {title}
+    </div>
+  );
+}
+
+function EkipKarti({ k, onEdit }: { k: Firma; onEdit: () => void }) {
+  const { sunucu, ekip, durum } = useEkip();
+  const map = useMemo(() => new Map(ekip.map((c) => [c.id, c])), [ekip]);
+  const ekipYok = sunucu && durum === "hazir" && !ekip.some((c) => c.aktif);
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <CardTitle icon={UsersRound} title="Atanan ekip" />
+        <Button kind="ghost" small icon={Pencil} onClick={onEdit}>
+          Ata / değiştir
+        </Button>
+      </div>
+      {!sunucu ? (
+        <div className="mt-3 rounded-2xl bg-soft-blue px-4 py-2.5 text-[12.5px] leading-relaxed text-brand-blue">
+          Çalışan hesapları ve atama için sunucu bağlantısı gerekir.
+        </div>
+      ) : ekipYok ? (
+        <div className="mt-3 rounded-2xl bg-soft-blue px-4 py-2.5 text-[12.5px] leading-relaxed text-brand-blue">
+          Önce Çalışanlar sekmesinden çalışan ekleyin.{" "}
+          <Link href="/app/musteri?sekme=calisanlar" className="font-bold underline">
+            Çalışanlar
+          </Link>
+        </div>
+      ) : null}
+      <div className="mt-3 space-y-2">
+        {ATAMALAR.map((a) => {
+          const id = k[a.alan];
+          const c = id ? map.get(id) : undefined;
+          return (
+            <div key={a.alan} className="flex items-center gap-3 rounded-2xl border border-line/70 bg-paper/40 p-3">
+              {c ? (
+                <Avatar name={c.ad_soyad} color={ROL_RENK[a.rol]} size={40} />
+              ) : (
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-line bg-white text-muted">
+                  <UserPlus size={17} />
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[11.5px] font-semibold text-muted">{rolEtiket(a.rol)}</div>
+                {c ? (
+                  <>
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-[14.5px] font-bold text-ink">{c.ad_soyad}</span>
+                      {!c.aktif ? (
+                        <Badge tone="gray" className="!py-0">
+                          Pasif
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <div className="mt-0.5 flex min-w-0 flex-wrap gap-x-3 gap-y-0.5 text-[12.5px]">
+                      <a href={`mailto:${c.eposta}`} className="inline-flex min-w-0 max-w-full items-center gap-1 text-brand-blue hover:underline">
+                        <Mail size={13} className="shrink-0" />
+                        <span className="truncate">{c.eposta}</span>
+                      </a>
+                      {c.telefon ? (
+                        <a href={`tel:${c.telefon.replace(/[^\d+]/g, "")}`} className="num inline-flex items-center gap-1 text-text hover:text-brand-blue">
+                          <Phone size={13} className="shrink-0" />
+                          {c.telefon}
+                        </a>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-[13.5px] font-semibold text-muted">
+                    {!id ? "Atanmadı" : !sunucu ? "Atanmış çalışan (sunucu bağlantısı yok)" : durum === "hazir" ? "Atanan hesap bulunamadı" : "Yükleniyor…"}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 
@@ -276,7 +400,7 @@ function Line({ label, children, mono }: { label: string; children: ReactNode; m
   );
 }
 
-function QuickPay({ k }: { k: Kursiyer }) {
+function QuickPay({ k }: { k: Firma }) {
   const kasalar = useStore((s) => s.kasalar);
   const active = useMemo(() => kasalar.filter((x) => x.is_active), [kasalar]);
   const [amount, setAmount] = useState(() => k.remaining_amount.toLocaleString("tr-TR", { maximumFractionDigits: 2, useGrouping: false }));
@@ -359,10 +483,10 @@ function QuickPay({ k }: { k: Kursiyer }) {
   );
 }
 
-export default function KursiyerDetailPage() {
+export default function FirmaDetailPage() {
   return (
     <Suspense fallback={<Loading />}>
-      <KursiyerDetailPageView />
+      <FirmaDetailPageView />
     </Suspense>
   );
 }

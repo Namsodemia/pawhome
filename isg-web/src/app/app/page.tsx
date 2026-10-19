@@ -15,7 +15,7 @@ import {
   Sparkles,
   TrendingDown,
   TrendingUp,
-  UserPlus,
+  Building2,
   Users,
   Wallet,
   WandSparkles,
@@ -102,13 +102,13 @@ function OsgbDashboard() {
     { label: "Risk analizi", href: "/app/risk/yeni", icon: WandSparkles },
     { label: "Gelir / gider", href: "/app/kasa?yeni=1", icon: Banknote },
     { label: "Sınıf mesajı", href: "/app/siniflar", icon: MessagesSquare },
-    { label: "Kursiyer", href: "/app/musteri?yeni=1", icon: UserPlus },
+    { label: "Firma ekle", href: "/app/musteri?yeni=1", icon: Building2 },
   ];
 
   const modules: { label: string; sub: string; href: string; icon: LucideIcon; color: string }[] = [
     { label: "Risk Analizi", sub: `${analyses.length} analiz · ${riskRows.length} madde`, href: "/app/risk", icon: ShieldCheck, color: "#5CBD7D" },
     { label: "Kasa / Cari", sub: `${balances.length} kasa`, href: "/app/kasa", icon: Wallet, color: "#107398" },
-    { label: "Müşteri Takip", sub: `${kt.n} kişi`, href: "/app/musteri", icon: Users, color: "#0B6F7B" },
+    { label: "Müşteri Takip", sub: `${kt.n} firma`, href: "/app/musteri", icon: Users, color: "#0B6F7B" },
     { label: "Sınıflar", sub: `${siniflar.length} sınıf · ${uyeler.length} kişi`, href: "/app/siniflar", icon: MessagesSquare, color: "#1B8ECF" },
     {
       label: "Sınav Hazırlık",
@@ -238,7 +238,7 @@ function OsgbDashboard() {
 
           <Section label="Müşteri takip" right={<SeeAll href="/app/musteri" />}>
             <div className="grid grid-cols-2 gap-2.5">
-              <Stat label="Kişi" value={kt.n} />
+              <Stat label="Firma" value={kt.n} />
               <Stat label="Sözleşme" value={moneyShort(kt.total)} tone="blue" />
               <Stat label="Tahsil" value={moneyShort(kt.collected)} tone="green" />
               <Stat label="Kalan" value={moneyShort(kt.remaining)} tone={kt.remaining > 0 ? "red" : "green"} />

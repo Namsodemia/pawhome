@@ -20,9 +20,14 @@ export interface SyncInfo {
   user: string | null;
   /** Kullanıcının adı soyadı (kayıtta girilen) */
   ad: string | null;
-  /** Kayıtta seçilen rol: osgb | uzman | hekim | ogrenci */
+  /** Kayıtta seçilen rol: osgb | uzman | hekim | dsp | ogrenci */
   rol: string | null;
   profil: Record<string, string> | null;
+  eposta: string | null;
+  /** Sunucudaki ilk (kurucu) hesap — ortak yapay zekâ anahtarını yönetir */
+  yonetici: boolean;
+  /** Hesap bir OSGB'nin çalışanı olarak açıldıysa o OSGB */
+  osgb: { id: number; ad: string } | null;
   message: string | null;
 }
 
@@ -33,6 +38,9 @@ export const useSync = create<SyncInfo>(() => ({
   ad: null,
   rol: null,
   profil: null,
+  eposta: null,
+  yonetici: false,
+  osgb: null,
   message: null,
 }));
 
@@ -201,11 +209,25 @@ export const serverStorage: StateStorage = {
       ad?: string;
       rol?: string;
       profil?: Record<string, string> | null;
+      eposta?: string | null;
+      yonetici?: boolean;
+      osgb?: { id: number; ad: string } | null;
       state: Record<string, unknown>;
     };
     mode = "server";
     baseRev = j.rev;
-    useSync.setState({ status: "saved", backend: true, user: j.user, ad: j.ad ?? null, rol: j.rol ?? null, profil: j.profil ?? null, message: null });
+    useSync.setState({
+      status: "saved",
+      backend: true,
+      user: j.user,
+      ad: j.ad ?? null,
+      rol: j.rol ?? null,
+      profil: j.profil ?? null,
+      eposta: j.eposta ?? null,
+      yonetici: !!j.yonetici,
+      osgb: j.osgb ?? null,
+      message: null,
+    });
     if (j.empty) {
       lastSent = {};
       return null;

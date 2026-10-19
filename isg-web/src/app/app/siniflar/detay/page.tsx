@@ -19,6 +19,7 @@ import {
   Monitor,
   Pencil,
   RotateCcw,
+  School,
   SendHorizontal,
   Trash2,
   UserPlus,
@@ -33,6 +34,7 @@ import { cx, fmtTime } from "@/lib/format";
 import type { Mesaj, MesajKanal, Uye } from "@/lib/types";
 import { ColorPicker, copyText, dayLabel } from "../_parts/common";
 import { MembersPanel, type UyeMode } from "../_parts/Members";
+import { useKatilim } from "../_parts/AppJoin";
 
 const WA_GREEN = "#25D366";
 const KANAL: { v: MesajKanal; label: string; icon: LucideIcon; color: string }[] = [
@@ -93,6 +95,8 @@ function SinifChatPageView() {
   const [editOpen, setEditOpen] = useState(false);
   const [menuId, setMenuId] = useState<number | null>(null);
   const deleting = useRef(false);
+  const katilim = useKatilim(sinif ? sid : null);
+  const appN = katilim.ogrenciler.length;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -101,7 +105,7 @@ function SinifChatPageView() {
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const m = sp.get("uyeler");
-    if (m === "yapistir" || m === "tek" || m === "musteri" || m === "liste") {
+    if (m === "yapistir" || m === "tek" || m === "musteri" || m === "liste" || m === "uygulama") {
       setMode(m);
       if (!isDesktop()) setMembersOpen(true);
       sp.delete("uyeler");
@@ -177,6 +181,12 @@ function SinifChatPageView() {
       return;
     }
     if (!phones.length) {
+      if (katilim.kod) {
+        // Yalnızca uygulamadan katılanlar varsa: kanalı "Sadece kaydet"e al, metin yerinde kalsın
+        setKanal("not");
+        toast("Sınıfta telefon numarası olan üye yok. Kanal “Sadece kaydet” yapıldı; gönderdiğinizde uygulamadaki öğrenciler görür.", "info");
+        return;
+      }
       toast("Sınıfta telefon numarası olan üye yok. Üyeler bölümünden numara yükleyin.", "error");
       setMode("yapistir");
       if (!isDesktop()) setMembersOpen(true);
@@ -230,11 +240,16 @@ function SinifChatPageView() {
       ? `${phones.length} kişiye WhatsApp ile tek tek açılır`
       : kanal === "sms"
         ? `${phones.length} kişiye toplu SMS`
-        : "Kimseye gönderilmez, geçmişe not düşer";
+        : katilim.kod
+          ? "WhatsApp/SMS gönderilmez; uygulamadaki öğrenciler görür"
+          : "Kimseye gönderilmez, geçmişe not düşer";
 
   const subLine = sinif.aciklama || uyeler.map((u) => u.ad.split(" ")[0]).join(", ") || "Üye eklemek için dokunun";
 
-  const membersPanel = (onDone?: () => void) => <MembersPanel sinif={sinif} uyeler={uyeler} mode={mode} setMode={setMode} onDone={onDone} />;
+  const membersPanel = (onDone?: () => void) => (
+    <MembersPanel sinif={sinif} uyeler={uyeler} mode={mode} setMode={setMode} onDone={onDone} katilim={katilim} />
+  );
+  const appLine = appN ? <> · <span className="num">{appN}</span> uygulamada</> : null;
 
   let lastDay = "";
 
@@ -257,6 +272,7 @@ function SinifChatPageView() {
             <h1 className="truncate text-[16px] font-extrabold text-navy md:text-[17px]">{sinif.ad}</h1>
             <div className="truncate text-[12px] text-muted">
               <span className="num">{uyeler.length}</span> üye · <span className="num">{phones.length}</span> numaralı
+              {appLine}
               {sinif.aciklama ? <span className="hidden lg:inline"> · {sinif.aciklama}</span> : null}
             </div>
           </div>
@@ -276,6 +292,7 @@ function SinifChatPageView() {
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-bold text-navy">
               {uyeler.length} üye · {phones.length} numaralı
+              {appLine}
             </div>
             <div className="truncate text-[12px] text-muted">{subLine}</div>
           </div>
@@ -471,6 +488,14 @@ function SinifChatPageView() {
             {hint} · {k.label}
             <span className="hidden md:inline"> · Enter gönderir, Shift+Enter yeni satır</span>
           </div>
+          {katilim.kod ? (
+            <div className="mt-1 flex items-center justify-center gap-1 text-center text-[11px] font-semibold text-brand-teal">
+              <School size={12} className="shrink-0" />
+              {appN
+                ? `Uygulamadan katılan ${appN} öğrenci bu mesajları Sınıfım sayfasında duyuru olarak görür.`
+                : "Kodla katılan öğrenciler bu mesajları uygulamada duyuru olarak görür."}
+            </div>
+          ) : null}
           <div className="mt-1 flex items-center justify-center gap-1 text-[11px] text-[#9AA6B2]">
             <Info size={12} /> Duyurular tek yönlüdür; yanıtlar WhatsApp/SMS üzerinden gelir.
           </div>
@@ -484,6 +509,7 @@ function SinifChatPageView() {
             <div className="text-[15px] font-extrabold text-navy">Üyeler</div>
             <div className="truncate text-[12px] text-muted">
               {uyeler.length} üye · {phones.length} numaralı
+              {appLine}
             </div>
           </div>
           {uyeler.length ? <AvatarStack names={uyeler.map((u) => u.ad)} max={3} color={sinif.renk} /> : null}

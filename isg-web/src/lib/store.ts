@@ -10,6 +10,7 @@ import type {
   Cevap,
   Denetim,
   DenetimInput,
+  EgitimKayit,
   Kasa,
   Kursiyer,
   KursiyerInput,
@@ -67,6 +68,7 @@ export interface Data {
   mesajlar: Mesaj[];
   chat: ChatMsg[];
   muayeneler: Muayene[];
+  egitimler: EgitimKayit[];
   settings: Settings;
 }
 
@@ -92,6 +94,7 @@ export function initialData(): Data {
     mesajlar: [],
     chat: [],
     muayeneler: [],
+    egitimler: [],
     settings: { ...DEFAULT_SETTINGS },
   };
 }
@@ -112,6 +115,7 @@ const DATA_KEYS: (keyof Data)[] = [
   "mesajlar",
   "chat",
   "muayeneler",
+  "egitimler",
   "settings",
 ];
 
@@ -160,6 +164,10 @@ export interface Actions {
   // periyodik muayene (işyeri hekimi)
   saveMuayene: (m: MuayeneInput, id?: number | null) => number;
   deleteMuayene: (id: number) => void;
+  // eğitimler (kurs ilerlemesi)
+  egitimDersTamam: (kursId: string, dersId: string) => void;
+  egitimSinav: (kursId: string, puan: number, gecti: boolean) => void;
+  egitimSifirla: (kursId: string) => void;
   // sınıflar
   addSinif: (ad: string, aciklama: string, renk: string) => number;
   updateSinif: (id: number, ad: string, aciklama: string, renk: string) => void;
@@ -204,7 +212,7 @@ function syncKasa(s: Data, kursiyerId: number): Data {
   }
   const cat = s.categories.find((c) => c.type === "gelir" && norm(c.name).includes("tahsilat")) ?? s.categories.find((c) => c.type === "gelir");
   const method: PayMethod = k.cash_amount > 0 && k.bank_amount === 0 ? "nakit" : "banka";
-  const description = `Kursiyer tahsilatı: ${k.full_name}${k.group_name ? ` (${k.group_name})` : ""}`;
+  const description = `Firma tahsilatı: ${k.full_name}${k.group_name ? ` (${k.group_name})` : ""}`;
   const trx_date = k.invoice_issue_date || today();
   if (existing) {
     const upd: Trx = { ...existing, trx_date, kasa_id: k.kasa_id, category_id: cat?.id ?? null, payment_method: method, description, amount: collected };
@@ -440,6 +448,53 @@ export const useStore = create<Store>()(
           return nid;
         },
         deleteMuayene: (id) => set((s) => ({ muayeneler: s.muayeneler.filter((x) => x.id !== id) })),
+
+        // ---------- eğitimler ----------
+        egitimDersTamam: (kursId, dersId) => {
+          const cur = get().egitimler.find((e) => e.kurs_id === kursId);
+          if (cur) {
+            if (cur.tamamlanan.includes(dersId)) return;
+            set((s) => ({
+              egitimler: s.egitimler.map((e) => (e.id === cur.id ? { ...e, tamamlanan: [...e.tamamlanan, dersId], updated_at: nowIso() } : e)),
+            }));
+            return;
+          }
+          const nid = nextId();
+          const now = nowIso();
+          set((s) => ({
+            egitimler: [...s.egitimler, { id: nid, kurs_id: kursId, tamamlanan: [dersId], sinav_puan: null, basarili_at: null, sertifika_no: "", created_at: now, updated_at: now }],
+          }));
+        },
+        egitimSinav: (kursId, puan, gecti) => {
+          const now = nowIso();
+          const certNo = () => `ISG-${today().replace(/-/g, "")}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+          const cur = get().egitimler.find((e) => e.kurs_id === kursId);
+          if (cur) {
+            set((s) => ({
+              egitimler: s.egitimler.map((e) =>
+                e.id === cur.id
+                  ? {
+                      ...e,
+                      sinav_puan: puan,
+                      // Bir kez geçtiyse sertifika korunur; daha düşük bir deneme onu silmez
+                      basarili_at: e.basarili_at ?? (gecti ? now : null),
+                      sertifika_no: e.sertifika_no || (gecti ? certNo() : ""),
+                      updated_at: now,
+                    }
+                  : e,
+              ),
+            }));
+            return;
+          }
+          const nid = nextId();
+          set((s) => ({
+            egitimler: [
+              ...s.egitimler,
+              { id: nid, kurs_id: kursId, tamamlanan: [], sinav_puan: puan, basarili_at: gecti ? now : null, sertifika_no: gecti ? certNo() : "", created_at: now, updated_at: now },
+            ],
+          }));
+        },
+        egitimSifirla: (kursId) => set((s) => ({ egitimler: s.egitimler.filter((e) => e.kurs_id !== kursId) })),
 
         // ---------- sınıflar ----------
         addSinif: (ad, aciklama, renk) => {

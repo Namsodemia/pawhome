@@ -171,7 +171,7 @@ function KasaInner() {
           { header: "Kategori", width: 20, value: (t) => (t.category_id ? catName.get(t.category_id) ?? "" : "") },
           { header: "Kasa", width: 18, value: (t) => (t.kasa_id ? kasaTitle.get(t.kasa_id) ?? "" : "Kasasız") },
           { header: "Ödeme aracı", width: 14, value: (t) => METHOD_LABEL[t.payment_method] ?? t.payment_method },
-          { header: "Kaynak", width: 11, value: (t) => (t.ref_type === "kursiyer" ? "Kursiyer" : "Manuel") },
+          { header: "Kaynak", width: 16, value: (t) => (t.ref_type === "kursiyer" ? "Firma tahsilatı" : "Manuel") },
           { header: "Gelir", width: 15, kind: "money", value: (t) => (t.type === "gelir" ? t.amount : null) },
           { header: "Gider", width: 15, kind: "money", value: (t) => (t.type === "gider" ? t.amount : null) },
           { header: "Tutar (±)", width: 16, kind: "money", value: (t) => (t.type === "gelir" ? t.amount : -t.amount) },
@@ -302,7 +302,7 @@ function KasaInner() {
                 <Empty
                   icon={Wallet}
                   title="Henüz hareket yok"
-                  text="Gelir/gider ekleyin ya da asistana söyleyin. Kursiyer tahsilatları da kasa seçiliyse buraya otomatik düşer."
+                  text="Gelir/gider ekleyin ya da asistana söyleyin. Firma tahsilatları da kasa seçiliyse buraya otomatik düşer."
                   action={
                     <Button icon={Plus} onClick={() => openForm(null)}>
                       Gelir / Gider ekle
@@ -432,7 +432,7 @@ function TrxRow({ t, kasaTitle, category, onClick }: { t: Trx; kasaTitle: string
           <span>{category ?? "-"}</span>
           {linked ? (
             <Badge tone="teal" className="ml-1 !px-2 !py-0.5 !text-[10.5px]">
-              Kursiyer
+              Firma
             </Badge>
           ) : null}
         </span>

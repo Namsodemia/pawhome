@@ -7,7 +7,9 @@ import {
   Database,
   FileSpreadsheet,
   GraduationCap,
+  HeartPulse,
   Lock,
+  Presentation,
   MessagesSquare,
   ShieldCheck,
   Siren,
@@ -33,31 +35,37 @@ const FEATURES: { icon: LucideIcon; color: string; title: string; text: string }
     icon: Wallet,
     color: "#107398",
     title: "Kasa / Cari",
-    text: "Birden çok kasa, gelir-gider kategorileri, aylık özet. Kursiyer tahsilatları kasaya otomatik ve çift kayıtsız yansır.",
+    text: "Birden çok kasa, gelir-gider kategorileri, aylık özet. Firma tahsilatları kasaya otomatik ve çift kayıtsız yansır.",
   },
   {
     icon: Users,
     color: "#0B6F7B",
-    title: "Müşteri (kursiyer) takip",
-    text: "Program bazında sözleşme, nakit/banka tahsilat ve kalan borç. Hızlı tahsilat, arama, WhatsApp, Excel içe/dışa aktarım.",
+    title: "Firma (müşteri) takip ve çalışanlar",
+    text: "Firma bazında sözleşme, tehlike sınıfı, nakit/banka tahsilat ve kalan borç. İGU, İH ve DSP çalışanlarınıza e-posta + şifreli hesap açın, firmalara atayın.",
   },
   {
     icon: MessagesSquare,
     color: "#1B8ECF",
     title: "Sınıflar ve duyurular",
-    text: "Listeyi yapıştırın, numaralar otomatik ayrışsın. Sınıfa WhatsApp sırası ya da toplu SMS ile tek seferde duyuru gönderin.",
+    text: "Sınıfa WhatsApp sırası ya da toplu SMS ile duyuru gönderin. Öğrenciler katılım koduyla sınıfa girer, duyuruları uygulamada görür.",
   },
   {
     icon: GraduationCap,
     color: "#6C5CE7",
-    title: "İSG uzmanlığı sınav hazırlık",
+    title: "İş sağlığı ve güvenliği uzmanlığı sınav hazırlık",
     text: "Ders bazında ön test / son test, karışık deneme sınavları, süre, cevap anahtarı ve geçme notu takibi.",
   },
   {
     icon: Sparkles,
     color: "#107398",
     title: "İsgora Asistan",
-    text: "Kasa, kursiyer ve risk verinizi görür; “Yasin kasasına 1.500 TL kırtasiye gideri gir” deyin, onayınızla kaydetsin.",
+    text: "Kasa, firma ve risk verinizi görür; “Yasin kasasına 1.500 TL kırtasiye gideri gir” deyin, onayınızla kaydetsin. Her hesaba 5 ücretsiz sorgu.",
+  },
+  {
+    icon: Presentation,
+    color: "#E0812B",
+    title: "Eğitimler",
+    text: "Temel İş Sağlığı ve Güvenliği Eğitimi: dersler, pekiştirme soruları, bitirme sınavı ve yazdırılabilir katılım belgesi.",
   },
   {
     icon: BookOpen,
@@ -91,28 +99,35 @@ const ROL_KARTLARI: { id: string; title: string; icon: LucideIcon; color: string
     title: "OSGB / Eğitim Kurumu",
     icon: Building2,
     color: "#107398",
-    items: ["Risk analizi ve raporlar", "Kasa / cari, kursiyer takibi", "Sınıflar ve toplu duyuru", "Muayene, denetim, kaza kayıtları"],
+    items: ["Firma takibi, sözleşme ve tahsilat", "İGU / İH / DSP çalışan hesapları", "Risk analizi, kasa / cari", "Sınıflar ve toplu duyuru"],
   },
   {
     id: "uzman",
-    title: "İş Güvenliği Uzmanı",
+    title: "İş Sağlığı ve Güvenliği Uzmanı",
     icon: HardHat,
     color: "#3AA466",
-    items: ["Yapay zekâ ile 5x5 risk analizi", "Saha denetimi ve PDF rapor", "Kaza / ramak kala, SGK süresi", "Mevzuat ve hesaplayıcı"],
+    items: ["Yapay zekâ ile 5x5 risk analizi", "Saha denetimi ve PDF rapor", "Kaza / ramak kala, SGK süresi", "Atandığınız firmalar"],
   },
   {
     id: "hekim",
-    title: "İşyeri Hekimi / Doktor",
+    title: "İşyeri Hekimi",
     icon: Stethoscope,
     color: "#D6334C",
     items: ["Periyodik muayene takibi", "Geciken / yaklaşan muayeneler", "Meslek hastalığı kayıtları", "Tetkik ve mevzuat asistanı"],
+  },
+  {
+    id: "dsp",
+    title: "Diğer Sağlık Personeli (DSP)",
+    icon: HeartPulse,
+    color: "#B5467B",
+    items: ["Muayene takvimi ve hatırlatma", "İlk yardım ve kaza kayıtları", "Sağlık eğitimleri", "Mevzuat asistanı"],
   },
   {
     id: "ogrenci",
     title: "Öğrenci / Uzman Adayı",
     icon: GraduationCap,
     color: "#6C5CE7",
-    items: ["Ders bazında ön / son test", "25–50 soruluk denemeler", "Zayıf konu analizi", "Öğretmen gibi yapay zekâ asistanı"],
+    items: ["Ders bazında ön / son test", "Kurumunuzun sınıf grubu", "Temel İSG eğitimi ve belge", "Öğretmen gibi yapay zekâ asistanı"],
   },
 ];
 
@@ -167,7 +182,7 @@ export default function Landing() {
               İş sağlığı ve güvenliğinin <span className="bg-brand bg-clip-text text-transparent">bütün işleri</span> tek ekranda.
             </h1>
             <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-muted">
-              Risk analizi, kasa/cari, kursiyer takibi, sınav hazırlık, sınıf duyuruları, mevzuat, kaza kaydı, saha denetimi ve hesaplayıcılar. İsgora mobil
+              Risk analizi, firma ve çalışan takibi, kasa/cari, sınav hazırlık, eğitimler, sınıf duyuruları, mevzuat, kaza kaydı, saha denetimi ve hesaplayıcılar. İsgora mobil
               uygulamasının web sürümü: telefonda, tablette ve bilgisayarda aynı deneyim.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -186,7 +201,10 @@ export default function Landing() {
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[13px] font-semibold text-muted">
               <span className="inline-flex items-center gap-1.5">
-                <Lock size={14} className="text-brand-green" /> Şifreli giriş
+                <Lock size={14} className="text-brand-green" /> E-posta doğrulamalı giriş
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles size={14} className="text-brand-green" /> 5 ücretsiz yapay zekâ sorgusu
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Database size={14} className="text-brand-green" /> SQLite veritabanı
@@ -258,7 +276,7 @@ export default function Landing() {
           <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-muted">
             Kayıt olurken seçtiğiniz role göre ana sayfanız, menüleriniz ve yapay zekâ asistanınız hazırlanır. Her hesabın verisi kendine aittir.
           </p>
-          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {ROL_KARTLARI.map((r) => {
               const Icon = r.icon;
               return (
@@ -293,7 +311,7 @@ export default function Landing() {
       <section id="ozellikler" className="bg-paper py-20">
         <div className="mx-auto max-w-6xl px-4 md:px-6">
           <div className="section-label">Modüller</div>
-          <h2 className="mt-3 max-w-2xl text-[30px] font-extrabold tracking-tight text-navy md:text-[38px]">Bir OSGB&apos;nin ve İSG uzmanının ihtiyacı olan her şey</h2>
+          <h2 className="mt-3 max-w-2xl text-[30px] font-extrabold tracking-tight text-navy md:text-[38px]">Bir OSGB&apos;nin ve iş sağlığı ve güvenliği uzmanının ihtiyacı olan her şey</h2>
           <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => {
               const Icon = f.icon;
@@ -385,7 +403,7 @@ export default function Landing() {
       <section id="guvenlik" className="bg-navy py-20 text-white">
         <div className="mx-auto grid grid-cols-1 max-w-6xl gap-6 px-4 md:grid-cols-3 md:px-6">
           {[
-            [Database, "Verileriniz sizde", "Kayıtlar kendi hosting'inizdeki SQLite veritabanında, şifreli girişle korunur. Her cihazdan aynı verilere ulaşırsınız; Ayarlar'dan JSON yedek de alabilirsiniz."],
+            [Database, "Verileriniz sizde", "Kayıtlar kendi hosting'inizdeki SQLite veritabanında, şifreli ve e-posta doğrulamalı girişle korunur. Her cihazdan aynı verilere ulaşırsınız; Ayarlar'dan JSON yedek de alabilirsiniz."],
             [Sparkles, "Claude ile çalışır", "Yapay zekâ özellikleri Anthropic Claude ile çalışır. API anahtarınızı bir kez Ayarlar'dan girin; sunucuda saklanır ve tüm cihazlarda geçerli olur."],
             [Smartphone, "Telefona kurun", "Tarayıcı menüsünden “Ana ekrana ekle” deyin; İsgora uygulama gibi tam ekran açılır."],
           ].map(([Icon, t, d]) => {

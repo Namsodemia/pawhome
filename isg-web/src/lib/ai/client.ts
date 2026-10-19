@@ -60,18 +60,53 @@ export function subscribeAiConfig(l: () => void) {
   return () => listeners.delete(l);
 }
 
+/** Ücretsiz deneme sorguları: kendi anahtarı olmayan kullanıcılar ortak anahtarla sınırlı sayıda sorgu yapar */
+export interface FreeQuota {
+  limit: number;
+  used: number;
+  left: number;
+  /** Yönetici hesabı — ortak anahtarı sınırsız kullanır */
+  unlimited: boolean;
+}
+
 export interface ServerStatus {
+  /** Bu kullanıcının isteklerine eklenecek bir anahtar var mı (kendi anahtarı ya da ücretsiz hakkı kalan ortak anahtar) */
   serverKey: boolean;
   accessCodeRequired: boolean;
+  /** Kullanıcı kendi anahtarını kaydetmiş */
+  ownKey?: boolean;
+  /** Sunucuda ortak anahtar (config.php ya da yöneticinin girdiği) tanımlı */
+  sharedKey?: boolean;
+  free?: FreeQuota;
 }
+const NO_STATUS: ServerStatus = { serverKey: false, accessCodeRequired: false };
 let _status: Promise<ServerStatus> | null = null;
 export function serverStatus(): Promise<ServerStatus> {
   if (!_status) {
     _status = fetch("/api/index.php?r=ai-status", { cache: "no-store", credentials: "same-origin" })
-      .then((r) => (r.ok ? (r.json() as Promise<ServerStatus>) : { serverKey: false, accessCodeRequired: false }))
-      .catch(() => ({ serverKey: false, accessCodeRequired: false }));
+      .then((r) => (r.ok ? (r.json() as Promise<ServerStatus>) : NO_STATUS))
+      .catch(() => NO_STATUS);
   }
   return _status;
+}
+
+/** Bir sorgu bittiğinde kalan ücretsiz hakkı yeniden okut (istemciyi yeniden kurmadan) */
+export function refreshAiStatus() {
+  _status = null;
+  notify();
+}
+
+/**
+ * Her kullanıcı işlemi (asistana bir soru, bir risk analizi üretimi…) tek "sorgu" sayılır.
+ * Aynı işlemin araç turları ve SDK'nın yeniden denemeleri aynı kimliği taşır → sunucu bir kez sayar.
+ */
+export function newQueryId(): string {
+  const a = new Uint8Array(12);
+  crypto.getRandomValues(a);
+  return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+export function queryHeaders(id: string): Record<string, string> {
+  return { "x-isgora-sorgu": id };
 }
 
 /** Sunucu anahtarı Ayarlar'dan değiştirildiğinde durum yeniden okunsun */
@@ -85,7 +120,8 @@ export type AiMode = "key" | "server" | "none";
 export async function aiMode(): Promise<AiMode> {
   if (getApiKey()) return "key";
   const s = await serverStatus();
-  return s.serverKey ? "server" : "none";
+  // Ücretsiz hakkı biten kullanıcı da vekile gider; yeni sorguyu sunucu 402 ile açıklayarak reddeder
+  return s.serverKey || s.sharedKey ? "server" : "none";
 }
 
 export class AiError extends Error {}
@@ -104,7 +140,9 @@ export async function client(): Promise<Anthropic> {
     return _client;
   }
   const st = await serverStatus();
-  if (!st.serverKey) {
+  // Ortak anahtar varken hakkı bitmiş olsa da vekile gidilir: sayılmış bir sorgunun araç turları sürebilir,
+  // yeni sorguyu sunucu 402 + açıklamayla reddeder (describeError).
+  if (!st.serverKey && !st.sharedKey) {
     throw new AiError("Anthropic API anahtarı girilmemiş. Ayarlar > Yapay Zekâ bölümünden ekleyin.");
   }
   const code = getAccessCode();
@@ -166,8 +204,16 @@ export function extractJson<T = unknown>(text: string): T {
   throw new AiError("Model geçerli JSON döndürmedi.");
 }
 
+export function quotaMessage(limit: number): string {
+  return `Ücretsiz ${limit} yapay zekâ sorgu hakkınız doldu. Devam etmek için Ayarlar > Yapay Zekâ bölümünden kendi Anthropic API anahtarınızı ekleyin.`;
+}
+
 export function describeError(e: unknown): string {
   if (e instanceof AiError) return e.message;
+  if (e instanceof Anthropic.APIError && e.status === 402) {
+    const msg = (e.error as { error?: { message?: string } } | undefined)?.error?.message;
+    return msg || quotaMessage(5);
+  }
   if (e instanceof Anthropic.AuthenticationError) return "API anahtarı geçersiz. Ayarlardan kontrol edin.";
   if (e instanceof Anthropic.PermissionDeniedError) return e.message?.includes("Oturum") ? "Oturum süresi doldu; sayfayı yenileyip tekrar giriş yapın." : "Erişim reddedildi. API anahtarı yetkilerini kontrol edin.";
   if (e instanceof Anthropic.RateLimitError) return "İstek sınırı aşıldı, biraz sonra tekrar deneyin.";
@@ -196,6 +242,7 @@ export async function callJson<T>(opts: {
 }): Promise<T> {
   const c = await client();
   const model = currentModel();
+  const qid = newQueryId();
   const stream = c.beta.messages.stream(
     {
       model,
@@ -205,9 +252,14 @@ export async function callJson<T>(opts: {
       output_config: { effort: opts.effort ?? currentEffort(), format: { type: "json_schema", schema: opts.schema } },
       ...fallbackParams(model),
     },
-    { signal: opts.signal },
+    { signal: opts.signal, headers: queryHeaders(qid) },
   );
-  const res = await stream.finalMessage();
+  let res;
+  try {
+    res = await stream.finalMessage();
+  } finally {
+    refreshAiStatus();
+  }
   if (res.stop_reason === "refusal") throw new AiError("Model bu isteği reddetti.");
   if (res.stop_reason === "max_tokens") throw new AiError("Yanıt uzunluk sınırına takıldı; daha az madde ile tekrar deneyin.");
   return extractJson<T>(textOf(res));

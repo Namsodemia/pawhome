@@ -8,8 +8,9 @@ import { useStore } from "@/lib/store";
 import { cx, norm, upperTR } from "@/lib/format";
 import { normPhone, parseList, prettyPhone } from "@/lib/phone";
 import type { Sinif, Uye } from "@/lib/types";
+import { AppJoinPanel, AppJoinTeaser, type Katilim } from "./AppJoin";
 
-export type UyeMode = "liste" | "yapistir" | "tek" | "musteri";
+export type UyeMode = "liste" | "yapistir" | "tek" | "musteri" | "uygulama";
 
 const PLACEHOLDER = "Ayşe Yılmaz 0532 123 45 67\nMehmet Kaya;05331234567\n3. Ali Demir\t+90 544 111 22 33";
 
@@ -19,6 +20,7 @@ export function MembersPanel({
   mode,
   setMode,
   onDone,
+  katilim,
 }: {
   sinif: Sinif;
   uyeler: Uye[];
@@ -26,6 +28,8 @@ export function MembersPanel({
   setMode: (m: UyeMode) => void;
   /** Mobil Sheet'te "Sohbete git" butonu için */
   onDone?: () => void;
+  /** Uygulamadan katılım (katılım kodu + kodla katılan öğrenciler) — sayfa düzeyinde yüklenir */
+  katilim?: Katilim;
 }) {
   const bulkAddUye = useStore((s) => s.bulkAddUye);
   const addUye = useStore((s) => s.addUye);
@@ -151,6 +155,9 @@ export function MembersPanel({
           { value: "yapistir", label: "Liste yapıştır" },
           { value: "tek", label: editId ? "Düzenle" : "Tek kişi" },
           { value: "musteri", label: "Müşteri Takip'ten" },
+          ...(katilim
+            ? [{ value: "uygulama" as const, label: katilim.ogrenciler.length ? `Uygulamadan katılım (${katilim.ogrenciler.length})` : "Uygulamadan katılım" }]
+            : []),
         ]}
       />
 
@@ -270,9 +277,13 @@ export function MembersPanel({
         </div>
       ) : null}
 
+      {/* ---------------- uygulamadan katılım */}
+      {mode === "uygulama" && katilim ? <AppJoinPanel sinif={sinif} uyeler={uyeler} katilim={katilim} /> : null}
+
       {/* ---------------- liste */}
       {mode === "liste" ? (
         <div className="mt-4">
+          {katilim ? <AppJoinTeaser katilim={katilim} onOpen={() => setMode("uygulama")} /> : null}
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="section-label">Üyeler</div>
             <span className="num text-[11.5px] text-muted">{numarali} numaralı</span>

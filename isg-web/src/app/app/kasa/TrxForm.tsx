@@ -166,7 +166,7 @@ export function TrxForm({ id, onClose }: { id: number | null; onClose: () => voi
 
         {!editable ? (
           <div className="rounded-2xl bg-soft-blue px-4 py-3 text-[13px] text-brand-blue">
-            Bu hareket bir kursiyer tahsilatından otomatik oluştu; Müşteri Takip ekranından düzenlenir.
+            Bu hareket bir firma tahsilatından otomatik oluştu; Müşteri Takip ekranından düzenlenir.
           </div>
         ) : null}
       </form>

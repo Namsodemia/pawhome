@@ -7,7 +7,9 @@ import {
   BookOpen,
   ClipboardCheck,
   GraduationCap,
+  HeartPulse,
   ListChecks,
+  Presentation,
   Siren,
   Stethoscope,
   ChevronRight,
@@ -24,9 +26,10 @@ import {
 } from "lucide-react";
 import type { ChatMsg } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { aiMode, MODELS, subscribeAiConfig, type AiMode } from "@/lib/ai/client";
+import { aiMode, MODELS, quotaMessage, subscribeAiConfig, type AiMode } from "@/lib/ai/client";
 import { cx, fmtTime } from "@/lib/format";
 import { Card, PageHeader } from "@/components/ui";
+import { AiQuotaBadge, AiQuotaWarning, useAiQuota } from "@/components/AiQuota";
 import { confirmDialog, toast } from "@/components/feedback";
 import { Markdown } from "./Markdown";
 import { ActionCard } from "./ActionCard";
@@ -91,6 +94,26 @@ const ROL_ICERIK: Record<Rol, { chips: string[]; examples: string[]; caps: Cap[]
     intro: "Muayene kayıtlarınızı ve olayları görür; periyodik muayene, tetkik planı, meslek hastalığı ve mevzuat sorularında yardım eder. Klinik karar sizindir.",
     note: null,
   },
+  dsp: {
+    chips: [
+      "İlk yardım dolabında neler bulunmalı?",
+      "Bu ay periyodik muayenesi gelenleri hatırlat",
+      "Çalışanlara sağlık eğitimi konuları öner",
+      "Kaç ilk yardımcı bulundurmalıyız?",
+      "İş kazası sonrası ilk müdahale ve kayıt adımları neler?",
+    ],
+    examples: ["Muayenesi geciken çalışanları listele", "Kaynak atölyesi için ilk yardım planı öner"],
+    caps: [
+      { icon: Stethoscope, color: "#D6334C", title: "Muayene takibi", text: "Yaklaşan / geciken periyodik muayeneler ve hatırlatma listesi." },
+      { icon: HeartPulse, color: "#B5467B", title: "İlk yardım", text: "İlk yardım dolabı, ilk yardımcı sayısı ve acil müdahale adımları." },
+      { icon: Siren, color: "#F4772E", title: "Kaza kayıtları", text: "İş kazası ve ramak kala özetleri, SGK bildirim süreleri." },
+      { icon: Presentation, color: "#E0812B", title: "Sağlık eğitimi", text: "Çalışan sağlığı eğitim konuları ve kısa sunum taslakları." },
+      { icon: BookOpen, color: "#1E3145", title: "Mevzuat", text: "Diğer sağlık personelinin görevleri, çalışma süreleri ve ilgili yönetmelikler." },
+    ],
+    intro:
+      "Muayene ve olay kayıtlarınızı görür; periyodik muayene takvimi, ilk yardım, iş kazası kayıtları ve çalışan sağlığı eğitimlerinde yardım eder. Tıbbi kararlar işyeri hekimiyle birlikte verilir.",
+    note: null,
+  },
   ogrenci: {
     chips: [
       "Risk değerlendirmesi konusunu özetle",
@@ -125,6 +148,7 @@ export default function AsistanPage() {
   const pending = useAsistan((s) => s.pending);
 
   const [mode, setMode] = useState<AiMode | "loading">("loading");
+  const quota = useAiQuota();
   const [text, setText] = useState("");
   const [limit, setLimit] = useState(40);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -169,6 +193,10 @@ export default function AsistanPage() {
   async function send(q?: string) {
     const t = (q ?? text).trim();
     if (!t || busy) return;
+    if (quota.kind === "bitti") {
+      toast(quotaMessage(quota.limit), "error");
+      return;
+    }
     if (mode === "none") {
       toast("Asistan için Ayarlar'dan API anahtarı girin.", "error");
       return;
@@ -197,9 +225,15 @@ export default function AsistanPage() {
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_288px] lg:gap-6">
       <div className="mx-auto flex min-h-[calc(100dvh-11.5rem)] w-full min-w-0 max-w-3xl flex-col">
-        <PageHeader title="Asistan" subtitle="Canlı verinize dayanarak yanıtlar; kayıtları onayınızla işler." />
+        <PageHeader
+          title="Asistan"
+          subtitle="Canlı verinize dayanarak yanıtlar; kayıtları onayınızla işler."
+          actions={quota.kind === "left" ? <AiQuotaBadge left={quota.left} limit={quota.limit} /> : undefined}
+        />
 
-        {mode === "none" ? (
+        {quota.kind === "bitti" ? (
+          <AiQuotaWarning limit={quota.limit} className="mb-4" />
+        ) : mode === "none" ? (
           <Link
             href="/app/ayarlar"
             className="mb-4 flex items-center gap-3 rounded-2xl border border-[#F3DFA9] bg-soft-warn px-4 py-3 text-[14px] font-bold text-warn transition hover:brightness-[.98]"

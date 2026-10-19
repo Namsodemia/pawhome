@@ -49,8 +49,25 @@ export interface Kursiyer {
   invoice_issue_date: string;
   is_active: boolean;
   created_at: string;
+  // ---- Firma bilgileri (Müşteri Takip firma bazlıdır; eski kayıtlarda bu alanlar yoktur) ----
+  /** Firmada görüşülen yetkili kişi */
+  yetkili?: string;
+  tehlike_sinifi?: HazardClass | "";
+  calisan_sayisi?: number;
+  nace_kodu?: string;
+  sgk_sicil?: string;
+  adres?: string;
+  /** Hizmet sözleşmesinin bitiş tarihi (YYYY-MM-DD) */
+  sozlesme_bitis?: string;
+  /** Firmaya atanan OSGB çalışanları (kullanıcı id — bkz. ?r=ekip) */
+  igu_id?: number | null;
+  ih_id?: number | null;
+  dsp_id?: number | null;
 }
 export type KursiyerInput = Omit<Kursiyer, "id" | "is_active" | "created_at">;
+/** Müşteri Takip'teki kayıtlar artık firmadır; veri modeli geriye dönük uyum için "kursiyerler" koleksiyonunda kalır. */
+export type Firma = Kursiyer;
+export type FirmaInput = KursiyerInput;
 
 export type HazardClass = "AZ TEHLİKELİ" | "TEHLİKELİ" | "ÇOK TEHLİKELİ";
 export type AnalysisStatus = "taslak" | "uretiliyor" | "hazir";
@@ -178,6 +195,21 @@ export interface Muayene {
   created_at: string;
 }
 export type MuayeneInput = Omit<Muayene, "id" | "created_at">;
+
+/** Eğitim modülü — kullanıcının bir kurstaki ilerlemesi (kurs başına tek kayıt) */
+export interface EgitimKayit {
+  id: number;
+  kurs_id: string;
+  /** Tamamlanan ders kimlikleri */
+  tamamlanan: string[];
+  /** Son bitirme sınavı puanı (0–100) */
+  sinav_puan: number | null;
+  /** Bitirme sınavını geçtiği an — sertifika tarihi */
+  basarili_at: string | null;
+  sertifika_no: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface ChatMsg {
   id: number;

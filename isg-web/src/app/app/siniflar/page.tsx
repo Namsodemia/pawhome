@@ -104,7 +104,8 @@ export default function SiniflarPage() {
           </div>
         </div>
         <p className="mt-4 max-w-xl text-[13.5px] leading-relaxed text-white/90">
-          Sınıf oluştur, ad ve numaraları yapıştır, WhatsApp veya SMS ile herkese tek seferde duyuru gönder.
+          Sınıf oluştur, ad ve numaraları yapıştır, WhatsApp veya SMS ile herkese tek seferde duyuru gönder. Öğrenciler sınıfın katılım
+          koduyla İsgora&apos;dan da katılıp duyuruları uygulamada görebilir.
         </p>
       </Hero>
 

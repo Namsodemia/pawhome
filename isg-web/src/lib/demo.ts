@@ -3,6 +3,14 @@ import type { Analysis, Kursiyer, Olay, RiskRow, Trx, Uye, Mesaj, Denetim, Cevap
 import { nowIso } from "./format";
 import { sonrakiTarih } from "./muayene";
 
+/** YYYY-MM-DD + n ay − 1 gün (ör. 12 aylık sözleşmenin bitişi) */
+function addMonths(iso: string, n: number): string {
+  const [y, m, dd] = iso.split("-").map(Number);
+  const d = new Date(y, m - 1 + n, dd - 1);
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 function daysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -13,7 +21,7 @@ function daysAgo(n: number): string {
 /**
  * Siteyi ilk açan biri her modülü dolu görebilsin diye örnek veri.
  * Mevcut verinin üstüne eklenir; id'ler ortak sayaçtan devam eder.
- * Dönen kursiyerIds için çağıran taraf kasa senkronunu çalıştırır.
+ * Dönen kursiyerIds (Müşteri Takip firmaları) için çağıran taraf kasa senkronunu çalıştırır.
  */
 export function buildDemoData(cur: Data): { data: Data; kursiyerIds: number[] } {
   let seq = cur.seq;
@@ -72,43 +80,253 @@ export function buildDemoData(cur: Data): { data: Data; kursiyerIds: number[] } 
     d.transactions.push(t);
   }
 
-  // kursiyerler (tahsilatlar kasa senkronuyla gelir olarak yansır)
-  const kursiyerSpec: Array<[string, string, string, number, number, number, number, number]> = [
-    // ad, telefon, grup, toplam, nakit, banka, kasa, günönce
-    ["Ayşe Yılmaz", "0532 412 18 90", "A Sınıfı İSG Uzmanlığı", 18000, 6000, 6000, yasin, 40],
-    ["Mehmet Kaya", "0541 220 34 11", "A Sınıfı İSG Uzmanlığı", 18000, 0, 18000, sirket, 35],
-    ["Zeynep Demir", "0505 881 72 03", "B Sınıfı İSG Uzmanlığı", 14000, 4000, 0, fatih, 30],
-    ["Burak Şahin", "0553 610 45 27", "C Sınıfı İSG Uzmanlığı", 11000, 0, 5500, sirket, 26],
-    ["Elif Arslan", "0536 902 11 64", "İşyeri Hekimliği", 22000, 0, 22000, sirket, 20],
-    ["Can Öztürk", "0544 337 80 52", "Temel İlk Yardım", 2500, 2500, 0, fatih, 14],
-    ["Selin Aydın", "0507 118 49 36", "Hijyen Eğitimi", 1200, 0, 0, yasin, 9],
-    ["Emre Çelik", "0542 775 63 08", "DSP (Diğer Sağlık Personeli)", 9000, 3000, 0, yasin, 4],
+  // müşteri firmalar (Müşteri Takip — "kursiyerler" koleksiyonu; tahsilatlar kasa senkronuyla gelir olarak yansır)
+  type FirmaSpec = {
+    ad: string;
+    vkn: string;
+    yetkili: string;
+    phone: string;
+    email: string;
+    city: string;
+    adres: string;
+    hizmet: string;
+    donem: string;
+    tehlike: HazardClass;
+    calisan: number;
+    nace: string;
+    sgk: string;
+    total: number;
+    cash: number;
+    bank: number;
+    kasa: number;
+    ago: number;
+    /** sözleşme süresi (ay); 0 = tek seferlik hizmet */
+    ay: number;
+    plasiyer: string;
+    notes: string;
+  };
+  const firmaSpec: FirmaSpec[] = [
+    {
+      ad: "Demirel Otomotiv San. Tic. Ltd. Şti.",
+      vkn: "2840512398",
+      yetkili: "Kemal Demirel",
+      phone: "0532 412 18 90",
+      email: "info@demirelotomotiv.com.tr",
+      city: "Mersin / Yenişehir",
+      adres: "Sanayi Sitesi 3. Blok No: 14",
+      hizmet: "İSG Hizmeti",
+      donem: "2026 yıllık",
+      tehlike: "TEHLİKELİ",
+      calisan: 34,
+      nace: "45.20.01",
+      sgk: "4.4520.01.01.1048231.033.01.47",
+      total: 96000,
+      cash: 0,
+      bank: 48000,
+      kasa: sirket,
+      ago: 40,
+      ay: 12,
+      plasiyer: "Yasin",
+      notes: "Aylık 8.000 ₺; fatura her ayın 5'inde kesilir.",
+    },
+    {
+      ad: "Akdeniz İnşaat Taahhüt A.Ş.",
+      vkn: "0130457721",
+      yetkili: "Serdar Akın",
+      phone: "0541 220 34 11",
+      email: "isg@akdenizinsaat.com.tr",
+      city: "Adana / Seyhan",
+      adres: "Turhan Cemal Beriker Blv. No: 210 Kat: 4",
+      hizmet: "İSG Hizmeti",
+      donem: "2026 yıllık",
+      tehlike: "ÇOK TEHLİKELİ",
+      calisan: 85,
+      nace: "41.20.01",
+      sgk: "4.4120.01.01.1093317.001.01.83",
+      total: 180000,
+      cash: 0,
+      bank: 90000,
+      kasa: sirket,
+      ago: 35,
+      ay: 12,
+      plasiyer: "",
+      notes: "Şantiye 2 için ayrıca haftalık saha denetimi.",
+    },
+    {
+      ad: "Lezzet Durağı Restoran",
+      vkn: "5210983346",
+      yetkili: "Hülya Arslan",
+      phone: "0505 881 72 03",
+      email: "",
+      city: "Mersin / Mezitli",
+      adres: "Kuyuluk Mah. 1203 Sok. No: 7",
+      hizmet: "Risk Analizi",
+      donem: "Ekim 2026",
+      tehlike: "AZ TEHLİKELİ",
+      calisan: 9,
+      nace: "56.10.01",
+      sgk: "",
+      total: 15000,
+      cash: 15000,
+      bank: 0,
+      kasa: fatih,
+      ago: 30,
+      ay: 0,
+      plasiyer: "",
+      notes: "",
+    },
+    {
+      ad: "Çukurova Tekstil San. A.Ş.",
+      vkn: "2310774105",
+      yetkili: "Murat Çelik",
+      phone: "0553 610 45 27",
+      email: "insankaynaklari@cukurovatekstil.com.tr",
+      city: "Adana / Yüreğir",
+      adres: "Hacı Sabancı OSB 6. Cad. No: 3",
+      hizmet: "Eğitim",
+      donem: "Kasım 2026",
+      tehlike: "TEHLİKELİ",
+      calisan: 120,
+      nace: "13.20.01",
+      sgk: "4.1320.01.01.1120045.002.01.25",
+      total: 36000,
+      cash: 0,
+      bank: 18000,
+      kasa: sirket,
+      ago: 26,
+      ay: 0,
+      plasiyer: "Yasin",
+      notes: "Temel İSG eğitimi — 4 grup, 120 kişi.",
+    },
+    {
+      ad: "Mavi Lojistik Depolama Ltd. Şti.",
+      vkn: "6120339872",
+      yetkili: "Gökhan Yurt",
+      phone: "0536 902 11 64",
+      email: "operasyon@mavilojistik.com.tr",
+      city: "Mersin / Akdeniz",
+      adres: "Serbest Bölge 2. Cad. Depo 11",
+      hizmet: "İSG Hizmeti",
+      donem: "2026 yıllık",
+      tehlike: "TEHLİKELİ",
+      calisan: 48,
+      nace: "52.10.02",
+      sgk: "",
+      total: 72000,
+      cash: 0,
+      bank: 72000,
+      kasa: sirket,
+      ago: 20,
+      ay: 12,
+      plasiyer: "",
+      notes: "",
+    },
+    {
+      ad: "Toros Plastik Ambalaj San. Ltd. Şti.",
+      vkn: "8450126637",
+      yetkili: "Ebru Kılıç",
+      phone: "0544 337 80 52",
+      email: "",
+      city: "Mersin / Tarsus",
+      adres: "Tarsus OSB 2. Kısım No: 18",
+      hizmet: "Periyodik Muayene",
+      donem: "Aralık 2026",
+      tehlike: "TEHLİKELİ",
+      calisan: 26,
+      nace: "22.22.01",
+      sgk: "",
+      total: 12500,
+      cash: 12500,
+      bank: 0,
+      kasa: fatih,
+      ago: 14,
+      ay: 0,
+      plasiyer: "Yasin",
+      notes: "Forklift ve kompresör periyodik kontrolleri.",
+    },
+    {
+      ad: "Ege Mali Müşavirlik",
+      vkn: "3290548810",
+      yetkili: "Tolga Ege",
+      phone: "0507 118 49 36",
+      email: "tolga@egemusavirlik.com",
+      city: "Adana / Çukurova",
+      adres: "Turgut Özal Blv. No: 54 D: 6",
+      hizmet: "İSG Hizmeti",
+      donem: "2026 yıllık",
+      tehlike: "AZ TEHLİKELİ",
+      calisan: 8,
+      nace: "69.20.01",
+      sgk: "",
+      total: 9600,
+      cash: 0,
+      bank: 0,
+      kasa: yasin,
+      ago: 9,
+      ay: 12,
+      plasiyer: "",
+      notes: "",
+    },
+    {
+      ad: "Kuzey Metal Kaynak San. Tic.",
+      vkn: "5630091144",
+      yetkili: "Emre Kuzey",
+      phone: "0542 775 63 08",
+      email: "",
+      city: "Adana / Sarıçam",
+      adres: "Küçük Sanayi Sitesi 14. Sok. No: 9",
+      hizmet: "İSG Hizmeti",
+      donem: "2026 yıllık",
+      tehlike: "ÇOK TEHLİKELİ",
+      calisan: 22,
+      nace: "25.11.01",
+      sgk: "",
+      total: 54000,
+      cash: 9000,
+      bank: 0,
+      kasa: yasin,
+      ago: 4,
+      ay: 12,
+      plasiyer: "Yasin",
+      notes: "",
+    },
   ];
   const kursiyerIds: number[] = [];
-  kursiyerSpec.forEach(([full_name, phone, group_name, total, cash, bank, kasa_id, ago], i) => {
+  for (const f of firmaSpec) {
+    const baslangic = daysAgo(f.ago);
     const k: Kursiyer = {
       id: id(),
-      full_name,
-      tc: "",
-      phone,
-      email: "",
-      city: i % 2 ? "Adana / Seyhan" : "Mersin / Yenişehir",
-      group_name,
-      list_no: "Aralık 2026",
-      total_amount: total,
-      cash_amount: cash,
-      bank_amount: bank,
-      remaining_amount: Math.max(0, total - cash - bank),
-      kasa_id,
-      plasiyer: i % 3 === 0 ? "Yasin" : "",
-      notes: "",
-      invoice_issue_date: daysAgo(ago),
+      full_name: f.ad,
+      tc: f.vkn,
+      phone: f.phone,
+      email: f.email,
+      city: f.city,
+      group_name: f.hizmet,
+      list_no: f.donem,
+      total_amount: f.total,
+      cash_amount: f.cash,
+      bank_amount: f.bank,
+      remaining_amount: Math.max(0, f.total - f.cash - f.bank),
+      kasa_id: f.kasa,
+      plasiyer: f.plasiyer,
+      notes: f.notes,
+      invoice_issue_date: baslangic,
       is_active: true,
       created_at: nowIso(),
+      yetkili: f.yetkili,
+      tehlike_sinifi: f.tehlike,
+      calisan_sayisi: f.calisan,
+      nace_kodu: f.nace,
+      sgk_sicil: f.sgk,
+      adres: f.adres,
+      sozlesme_bitis: f.ay ? addMonths(baslangic, f.ay) : "",
+      igu_id: null,
+      ih_id: null,
+      dsp_id: null,
     };
     d.kursiyerler.push(k);
     kursiyerIds.push(k.id);
-  });
+  }
 
   // örnek risk analizi
   const aid = id();

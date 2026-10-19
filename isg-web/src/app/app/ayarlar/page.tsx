@@ -19,12 +19,15 @@ import {
   Tags,
   Trash2,
   Upload,
+  Users,
   Wallet,
   X,
   type LucideIcon,
 } from "lucide-react";
-import { Badge, Button, Chips, Field, Input, PageHeader, Segment } from "@/components/ui";
+import { Badge, Button, Chips, Field, Input, PageHeader, Segment, Textarea } from "@/components/ui";
 import { FieldGroup } from "@/components/FieldGroup";
+import { AiQuotaBadge, AiQuotaWarning, useAiQuota } from "@/components/AiQuota";
+import { ortakAnahtarDurum, ortakAnahtarKaydet, ortakAnahtarSil } from "@/lib/api";
 import { confirmDialog, toast } from "@/components/feedback";
 import { kasaBalances, useStore, type Data } from "@/lib/store";
 import { cx, money, norm, nowIso, today } from "@/lib/format";
@@ -141,57 +144,101 @@ function SettingsCard({ icon: Icon, title, sub, children, className }: { icon: L
 
 // ---------------------------------------------------------------- Yapay Zekâ
 
-const MODE_TEXT: Record<AiMode, { text: string; tone: string; dot: string }> = {
-  key: { text: "Etkin mod: kendi API anahtarınız (istekler tarayıcıdan doğrudan Anthropic'e gider).", tone: "text-success", dot: "bg-success" },
-  server: { text: "Etkin mod: sunucu anahtarı (istekler uygulama sunucusu üzerinden gider).", tone: "text-brand-blue", dot: "bg-brand-blue" },
-  none: { text: "Yapay zekâ kapalı: API anahtarı girilmemiş.", tone: "text-danger", dot: "bg-danger" },
-};
+type ModeInfo = { text: string; tone: string; dot: string };
+
+function modeInfo(mode: AiMode | null, srv: ServerStatus | null, ctx: { yonetici: boolean; osgb: boolean; bitti: boolean }): ModeInfo | null {
+  if (!mode) return null;
+  if (mode === "key") return { text: "Etkin mod: bu tarayıcıdaki kendi API anahtarınız (istekler tarayıcıdan doğrudan Anthropic'e gider).", tone: "text-success", dot: "bg-success" };
+  if (mode === "none") {
+    return ctx.bitti
+      ? { text: "Yapay zekâ kapalı: ücretsiz sorgularınız bitti; kendi API anahtarınızı ekleyin.", tone: "text-danger", dot: "bg-danger" }
+      : { text: "Yapay zekâ kapalı: API anahtarı girilmemiş.", tone: "text-danger", dot: "bg-danger" };
+  }
+  const blue = { tone: "text-brand-blue", dot: "bg-brand-blue" };
+  if (srv?.ownKey) return { text: "Etkin mod: sunucuda kayıtlı kendi anahtarınız (istekler uygulama sunucusu üzerinden gider).", ...blue };
+  if (srv?.free?.unlimited) {
+    if (ctx.yonetici) return { text: "Etkin mod: ortak sunucu anahtarı — yönetici olarak sınırsız kullanırsınız.", ...blue };
+    if (ctx.osgb) return { text: "Etkin mod: bağlı olduğunuz OSGB'nin anahtarı (sınırsız).", ...blue };
+  } else if (srv?.free && srv.sharedKey) {
+    return { text: `Etkin mod: ücretsiz deneme — ortak sunucu anahtarı (${srv.free.left} / ${srv.free.limit} sorgu kaldı).`, ...blue };
+  }
+  return { text: "Etkin mod: sunucu anahtarı (istekler uygulama sunucusu üzerinden gider).", ...blue };
+}
+
+/** Göster / gizle düğmeli anahtar alanı */
+function SecretInput({ value, onChange, placeholder = "sk-ant-…" }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        mono
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        className="!pr-11 text-[14px]"
+      />
+      <button
+        type="button"
+        onClick={() => setShow((v) => !v)}
+        aria-label={show ? "Gizle" : "Göster"}
+        className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-xl text-muted hover:bg-paper hover:text-navy"
+      >
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
+}
 
 function AiCard() {
   const savedKey = useSyncExternalStore(subscribeAiConfig, getApiKey, () => "");
   const savedCode = useSyncExternalStore(subscribeAiConfig, getAccessCode, () => "");
   const settings = useStore((s) => s.settings);
+  const backend = useSync((s) => s.backend);
+  const yonetici = useSync((s) => s.yonetici);
+  const osgb = useSync((s) => s.osgb);
+  const quota = useAiQuota();
   const [keyInput, setKeyInput] = useState("");
-  const [show, setShow] = useState(false);
+  const [keyErr, setKeyErr] = useState<string | null>(null);
   const [codeInput, setCodeInput] = useState("");
   const [srv, setSrv] = useState<ServerStatus | null>(null);
   const [mode, setMode] = useState<AiMode | null>(null);
   const [testing, setTesting] = useState(false);
+  const [busyKey, setBusyKey] = useState(false);
 
+  // Açılışta, anahtar değiştiğinde ve her sorgudan sonra (refreshAiStatus) yeniden okunur
   useEffect(() => {
     let alive = true;
-    void serverStatus().then((s) => alive && setSrv(s));
+    const load = () => {
+      void serverStatus().then((s) => {
+        if (alive) setSrv(s);
+      });
+      void aiMode().then((m) => {
+        if (alive) setMode(m);
+      });
+    };
+    load();
+    const unsub = subscribeAiConfig(load);
     return () => {
       alive = false;
+      unsub();
     };
   }, []);
 
-  useEffect(() => {
-    let alive = true;
-    void aiMode().then((m) => alive && setMode(m));
-    return () => {
-      alive = false;
-    };
-  }, [savedKey, savedCode]);
-
-  const backend = useSync((s) => s.backend);
-  const [busyKey, setBusyKey] = useState(false);
-
-  async function refreshServer() {
-    resetServerStatus();
-    setSrv(await serverStatus());
-    setMode(await aiMode());
-  }
+  const ownServerKey = !!srv?.ownKey;
 
   async function saveKey(e?: FormEvent) {
     e?.preventDefault();
     const k = keyInput.trim();
     if (!k) {
-      toast("Anahtarı yapıştırın.", "error");
+      setKeyErr("Anahtarı yapıştırın.");
       return;
     }
     if (!k.startsWith("sk-ant-")) {
-      toast("Anthropic API anahtarı “sk-ant-” ile başlar. Anahtarı kontrol edin.", "error");
+      setKeyErr("Anthropic API anahtarı “sk-ant-” ile başlar. Anahtarı kontrol edin.");
       return;
     }
     if (backend) {
@@ -201,9 +248,8 @@ function AiCard() {
         if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { message?: string }).message || "Kaydedilemedi.");
         if (savedKey) setApiKey("");
         setKeyInput("");
-        setShow(false);
-        await refreshServer();
-        toast("API anahtarı sunucuda saklandı; tüm cihazlarınızda geçerli.");
+        resetServerStatus();
+        toast("API anahtarınız sunucuda saklandı; tüm cihazlarınızda geçerli.");
       } catch (err) {
         toast(err instanceof Error ? err.message : "Kaydedilemedi.", "error");
       } finally {
@@ -213,16 +259,25 @@ function AiCard() {
     }
     setApiKey(k);
     setKeyInput("");
-    setShow(false);
     toast("API anahtarı bu tarayıcıda saklandı.");
   }
 
   async function removeServerKey() {
-    const ok = await confirmDialog({ title: "Sunucu anahtarını sil", text: "Yapay zekâ özellikleri, yeni bir anahtar girilene kadar çalışmaz.", okLabel: "Sil", danger: true });
+    const ok = await confirmDialog({
+      title: "Anahtarınızı silin",
+      text: "Sunucudaki kendi API anahtarınız silinecek. Ücretsiz deneme hakkınız varsa ortak anahtarla devam edebilirsiniz; yoksa yeni anahtar girilene kadar yapay zekâ özellikleri çalışmaz.",
+      okLabel: "Sil",
+      danger: true,
+    });
     if (!ok) return;
-    await apiFetch("ai-key", { method: "DELETE" });
-    await refreshServer();
-    toast("Sunucu anahtarı silindi.");
+    try {
+      const r = await apiFetch("ai-key", { method: "DELETE" });
+      if (!r.ok) throw new Error("Silinemedi.");
+      resetServerStatus();
+      toast("API anahtarınız silindi.");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Silinemedi.", "error");
+    }
   }
 
   async function removeKey() {
@@ -261,7 +316,7 @@ function AiCard() {
     }
   }
 
-  const modeInfo = mode ? MODE_TEXT[mode] : null;
+  const info = modeInfo(mode, srv, { yonetici, osgb: !!osgb, bitti: quota.kind === "bitti" });
 
   return (
     <SettingsCard
@@ -269,11 +324,20 @@ function AiCard() {
       title="Yapay Zekâ"
       sub={backend ? "Anahtar sunucudaki veritabanında saklanır; tarayıcıya geri gönderilmez." : "Anahtar yalnızca bu tarayıcıda saklanır."}
     >
-      {srv?.serverKey ? (
+      {quota.kind === "left" ? (
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <AiQuotaBadge left={quota.left} limit={quota.limit} />
+          <span className="text-[12px] leading-snug text-muted">Kendi anahtarınızı eklediğinizde sınır kalkar.</span>
+        </div>
+      ) : quota.kind === "bitti" ? (
+        <AiQuotaWarning limit={quota.limit} link={false} className="mb-4" />
+      ) : null}
+
+      {ownServerKey ? (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-soft-green px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-success">
           <CircleCheck size={16} className="shrink-0" />
-          <span className="min-w-0 flex-1">Sunucu anahtarı tanımlı — tüm cihazlarınızda yapay zekâ çalışır.</span>
-          {backend && !(srv as ServerStatus & { keyFromFile?: boolean }).keyFromFile ? (
+          <span className="min-w-0 flex-1">Kendi API anahtarınız sunucuda kayıtlı — tüm cihazlarınızda yapay zekâ çalışır.</span>
+          {backend ? (
             <Button kind="danger" small icon={Trash2} onClick={removeServerKey}>
               Sil
             </Button>
@@ -294,41 +358,28 @@ function AiCard() {
 
       <form onSubmit={saveKey} className="space-y-2.5">
         <Field
-          label={savedKey || srv?.serverKey ? "Yeni Anthropic API anahtarı" : "Anthropic API anahtarı"}
+          label={savedKey || ownServerKey ? "Yeni Anthropic API anahtarı" : "Kendi Anthropic API anahtarınız"}
+          error={keyErr}
           hint={
             <>
               Anahtarı{" "}
               <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" className="font-bold text-brand-blue hover:underline">
                 console.anthropic.com
               </a>{" "}
-              adresinden alabilirsiniz. Risk analizi ve asistan bu anahtarla çalışır.
+              adresinden alabilirsiniz. Risk analizi ve asistan bu anahtarla sınırsız çalışır.
             </>
           }
         >
-          <div className="relative">
-            <Input
-              mono
-              type={show ? "text" : "password"}
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-              placeholder="sk-ant-…"
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              className="!pr-11 text-[14px]"
-            />
-            <button
-              type="button"
-              onClick={() => setShow((v) => !v)}
-              aria-label={show ? "Gizle" : "Göster"}
-              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-xl text-muted hover:bg-paper hover:text-navy"
-            >
-              {show ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
+          <SecretInput
+            value={keyInput}
+            onChange={(v) => {
+              setKeyInput(v);
+              setKeyErr(null);
+            }}
+          />
         </Field>
         <Button type="submit" icon={KeyRound} disabled={!keyInput.trim()} loading={busyKey}>
-          {backend ? (srv?.serverKey ? "Sunucu anahtarını değiştir" : "Anahtarı sunucuya kaydet") : "Anahtarı kaydet"}
+          {backend ? (ownServerKey ? "Anahtarınızı değiştirin" : "Anahtarı sunucuya kaydet") : "Anahtarı kaydet"}
         </Button>
       </form>
 
@@ -343,9 +394,9 @@ function AiCard() {
         </form>
       ) : null}
 
-      <div className={cx("mt-4 flex items-start gap-2 text-[12.5px] font-semibold leading-relaxed", modeInfo?.tone ?? "text-muted")}>
-        <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", modeInfo?.dot ?? "bg-line")} />
-        {modeInfo?.text ?? "Durum kontrol ediliyor…"}
+      <div className={cx("mt-4 flex items-start gap-2 text-[12.5px] font-semibold leading-relaxed", info?.tone ?? "text-muted")}>
+        <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", info?.dot ?? "bg-line")} />
+        {info?.text ?? "Durum kontrol ediliyor…"}
       </div>
 
       <div className="mt-5 h-px bg-line" />
@@ -380,7 +431,140 @@ function AiCard() {
       <Button kind="secondary" icon={PlugZap} onClick={testConnection} loading={testing} disabled={mode === "none"} className="mt-5">
         Bağlantıyı test et
       </Button>
+
+      {backend && yonetici ? <OrtakAnahtar /> : null}
     </SettingsCard>
+  );
+}
+
+/** Yönetici: kendi anahtarı olmayan kullanıcıların ücretsiz sorgularında kullanılan ortak anahtar */
+function OrtakAnahtar() {
+  const [st, setSt] = useState<{ set: boolean; fromConfig: boolean; limit: number } | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [input, setInput] = useState("");
+  const [inputErr, setInputErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    ortakAnahtarDurum()
+      .then((s) => {
+        if (!alive) return;
+        setSt(s);
+        setLoadErr(null);
+      })
+      .catch((e: unknown) => {
+        if (alive) setLoadErr(e instanceof Error ? e.message : "Durum okunamadı.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tick]);
+
+  const reload = () => setTick((t) => t + 1);
+  const limit = st?.limit ?? 5;
+
+  async function save(e?: FormEvent) {
+    e?.preventDefault();
+    const k = input.trim();
+    if (!k) {
+      setInputErr("Anahtarı yapıştırın.");
+      return;
+    }
+    if (!k.startsWith("sk-ant-")) {
+      setInputErr("Anthropic API anahtarı “sk-ant-” ile başlamalı.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await ortakAnahtarKaydet(k);
+      setInput("");
+      resetServerStatus();
+      reload();
+      toast("Ortak anahtar kaydedildi; ücretsiz sorgular bu anahtarla yapılır.");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Kaydedilemedi.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    const ok = await confirmDialog({
+      title: "Ortak anahtarı kaldır",
+      text: "Kendi anahtarı olmayan kullanıcılar ücretsiz sorgu yapamaz (config.php'de bir anahtar tanımlıysa o kullanılmaya devam eder).",
+      okLabel: "Kaldır",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await ortakAnahtarSil();
+      resetServerStatus();
+      reload();
+      toast("Ortak anahtar kaldırıldı.");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Kaldırılamadı.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-5 border-t border-line pt-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Users size={17} className="shrink-0 text-brand-blue" />
+        <h3 className="min-w-0 text-[14.5px] font-extrabold text-navy">Ortak API anahtarı (ücretsiz sorgular)</h3>
+        <Badge tone="navy">Yönetici</Badge>
+      </div>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
+        Kendi anahtarı olmayan her kullanıcı bu anahtarla <span className="num font-bold text-navy">{limit}</span> ücretsiz sorgu yapabilir; yönetici sınırsız kullanır.
+      </p>
+
+      {loadErr ? (
+        <div className="mt-3 rounded-2xl bg-soft-danger px-3.5 py-2.5 text-[12.5px] font-semibold text-danger">{loadErr}</div>
+      ) : !st ? (
+        <div className="skeleton mt-3 h-11 w-full rounded-2xl" />
+      ) : st.set && st.fromConfig ? (
+        <div className="mt-3 flex items-start gap-2 rounded-2xl bg-soft-blue px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-brand-blue">
+          <CircleCheck size={16} className="mt-0.5 shrink-0" />
+          <span className="min-w-0">
+            Ortak anahtar sunucudaki <span className="font-mono">config.php</span> dosyasından geliyor; değiştirmek ya da kaldırmak için oradaki
+            ayarı düzenleyin. Aşağıdan girdiğiniz anahtar config.php&apos;dekinin yerine geçer.
+          </span>
+        </div>
+      ) : st.set ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl bg-soft-green px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-success">
+          <CircleCheck size={16} className="shrink-0" />
+          <span className="min-w-0 flex-1">Ortak anahtar tanımlı — ücretsiz sorgular açık.</span>
+          <Button kind="danger" small icon={Trash2} onClick={remove} disabled={busy}>
+            Kaldır
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-3 rounded-2xl border border-[#F3DFA9] bg-soft-warn px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-warn">
+          Ortak anahtar tanımlı değil — kendi anahtarı olmayan kullanıcılar yapay zekâyı kullanamaz.
+        </div>
+      )}
+
+      {!loadErr ? (
+        <form onSubmit={save} className="mt-3 space-y-2.5">
+          <Field label={st?.set ? "Yeni ortak anahtar" : "Ortak anahtar"} error={inputErr}>
+            <SecretInput
+              value={input}
+              onChange={(v) => {
+                setInput(v);
+                setInputErr(null);
+              }}
+            />
+          </Field>
+          <Button type="submit" kind="secondary" icon={KeyRound} disabled={!input.trim()} loading={busy}>
+            Ortak anahtarı kaydet
+          </Button>
+        </form>
+      ) : null}
+    </div>
   );
 }
 
@@ -736,19 +920,133 @@ function LogoutButton() {
 
 // ---------------------------------------------------------------- Profil ve rol
 
-const HEDEF_SINAVLAR = ["C Sınıfı İSG Uzmanlığı", "B Sınıfı İSG Uzmanlığı", "A Sınıfı İSG Uzmanlığı", "İşyeri Hekimliği", "DSP (Diğer Sağlık Personeli)"];
+const HEDEF_SINAVLAR = [
+  "C Sınıfı İş Sağlığı ve Güvenliği Uzmanlığı",
+  "B Sınıfı İş Sağlığı ve Güvenliği Uzmanlığı",
+  "A Sınıfı İş Sağlığı ve Güvenliği Uzmanlığı",
+  "İşyeri Hekimliği",
+  "Diğer Sağlık Personeli (DSP)",
+];
+/** Eski kayıtlardaki kısaltmalı değerler → kayıt formundaki (giris.php) güncel ad */
+const HEDEF_ESKI: Record<string, string> = {
+  "C Sınıfı İSG Uzmanlığı": HEDEF_SINAVLAR[0],
+  "B Sınıfı İSG Uzmanlığı": HEDEF_SINAVLAR[1],
+  "A Sınıfı İSG Uzmanlığı": HEDEF_SINAVLAR[2],
+  "DSP (Diğer Sağlık Personeli)": HEDEF_SINAVLAR[4],
+};
+/** DSP meslekleri — giris.php ile aynı */
+const MESLEKLER = ["Hemşire", "Sağlık memuru", "Acil tıp teknisyeni", "Çevre sağlığı teknisyeni", "Diğer"];
+/** giris.php'deki kayıt formuyla aynı seçenekler */
+const DENEYIMLER = ["0–1 yıl", "1–3 yıl", "3–5 yıl", "5–10 yıl", "10 yıldan fazla"];
+
+/** Sunucudaki profil beyaz listesiyle aynı alanlar */
+const PROFIL_KEYS: (keyof Profil)[] = [
+  "ad_soyad",
+  "telefon",
+  "kurum",
+  "il",
+  "ilce",
+  "uzmanlik_sinifi",
+  "belge_no",
+  "deneyim",
+  "uzmanlik_alani",
+  "meslek",
+  "hedef_sinav",
+  "bolum",
+  "yetki_belge_no",
+  "vergi_no",
+  "adres",
+];
+
+type Hatalar = Partial<Record<keyof Profil, string>>;
+
+const KURUM_ETIKET: Record<Rol, { label: string; placeholder: string }> = {
+  osgb: { label: "OSGB / kurum adı", placeholder: "Örn. Güven OSGB Ltd. Şti." },
+  uzman: { label: "Çalıştığınız firma / OSGB", placeholder: "Örn. Güven OSGB" },
+  hekim: { label: "Çalıştığınız kurum / OSGB / hastane", placeholder: "Örn. Güven OSGB" },
+  dsp: { label: "Çalıştığınız kurum / OSGB", placeholder: "Örn. Güven OSGB" },
+  ogrenci: { label: "Eğitim aldığınız eğitim kurumu", placeholder: "Örn. Güven Eğitim Kurumu" },
+};
+
+const ZORUNLU: Record<Rol, (keyof Profil)[]> = {
+  osgb: ["kurum"],
+  uzman: ["uzmanlik_sinifi", "kurum"],
+  hekim: [],
+  dsp: ["meslek"],
+  ogrenci: ["kurum"],
+};
+
+const ZORUNLU_MESAJ: Hatalar = {
+  kurum: "Bu alan zorunludur.",
+  uzmanlik_sinifi: "Uzmanlık belgesi sınıfını seçin.",
+  meslek: "Mesleğinizi seçin.",
+};
+
+/** Sunucudaki normalize_phone ile aynı kural: Türkiye numarası, 10 hane, 2–5 ile başlar */
+function telefonGecerli(raw: string): boolean {
+  let d = raw.replace(/\D/g, "");
+  if (d.length === 12 && d.startsWith("90")) d = d.slice(2);
+  else if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+  return d.length === 10 && /^[2-5]/.test(d);
+}
+
+/** Kayıtlı değer listede yoksa (eski kayıt) seçenek olarak korunur */
+function withValue(list: string[], v?: string): string[] {
+  return v && !list.includes(v) ? [...list, v] : list;
+}
+
+function SelectInput({ value, onChange, options, placeholder = "Seçin" }: { value?: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) {
+  return (
+    <select className="field" value={value ?? ""} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{placeholder}</option>
+      {withValue(options, value).map((x) => (
+        <option key={x} value={x}>
+          {x}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 function ProfileCard() {
   const rol = useRol();
   const profil = useProfil();
   const user = useSync((s) => s.user);
+  const osgb = useSync((s) => s.osgb);
+  /** OSGB'nin açtığı çalışan hesabında rol OSGB tarafından belirlenir */
+  const rolKilitli = !!osgb && rol !== "osgb";
   const [sel, setSel] = useState<Rol>(rol);
-  const [p, setP] = useState<Profil>(profil);
+  const [p, setP] = useState<Profil>(() => ({
+    ...profil,
+    hedef_sinav: profil.hedef_sinav ? (HEDEF_ESKI[profil.hedef_sinav] ?? profil.hedef_sinav) : profil.hedef_sinav,
+    kurum: profil.kurum || (osgb && rol !== "osgb" ? osgb.ad : ""),
+  }));
+  const [hata, setHata] = useState<Hatalar>({});
   const [busy, setBusy] = useState(false);
-  const set = (k: keyof Profil) => (v: string) => setP((x) => ({ ...x, [k]: v }));
+
+  const set = (k: keyof Profil) => (v: string) => {
+    setP((x) => ({ ...x, [k]: v }));
+    setHata((h) => (h[k] ? { ...h, [k]: undefined } : h));
+  };
+  const val = (k: keyof Profil) => (p[k] as string | undefined) ?? "";
+  const zorunlu = ZORUNLU[sel];
+  const req = (k: keyof Profil, label: string) => (zorunlu.includes(k) ? `${label} *` : label);
+
+  function dogrula(): boolean {
+    const h: Hatalar = {};
+    for (const k of zorunlu) if (!val(k).trim()) h[k] = ZORUNLU_MESAJ[k] ?? "Bu alan zorunludur.";
+    if (val("telefon").trim() && !telefonGecerli(val("telefon"))) h.telefon = "Geçerli bir telefon numarası girin (örn. 0532 123 45 67).";
+    if (sel === "osgb" && val("vergi_no").trim() && !/^\d{10,11}$/.test(val("vergi_no").replace(/\s/g, ""))) h.vergi_no = "Vergi numarası 10, TC kimlik numarası 11 hanelidir.";
+    setHata(h);
+    return Object.keys(h).length === 0;
+  }
 
   async function save(e?: FormEvent) {
     e?.preventDefault();
+    if (!dogrula()) {
+      toast("Eksik ya da hatalı alanları düzeltin.", "error");
+      return;
+    }
     if (sel !== rol) {
       const ok = await confirmDialog({
         title: "Rolü değiştir",
@@ -757,12 +1055,15 @@ function ProfileCard() {
       });
       if (!ok) return;
     }
+    const temiz: Record<string, string> = {};
+    for (const k of PROFIL_KEYS) temiz[k] = val(k).trim();
     setBusy(true);
     try {
-      const r = await apiFetch("profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rol: sel, profil: p }) });
+      const r = await apiFetch("profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rol: sel, profil: temiz }) });
       if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { message?: string }).message || "Kaydedilemedi.");
       const j = (await r.json()) as { rol: string; profil: Record<string, string> };
       useSync.setState({ rol: j.rol, profil: j.profil, ad: j.profil.ad_soyad ?? null });
+      setP((x) => ({ ...x, ...(j.profil as Profil) }));
       toast(sel !== rol ? `Rolünüz ${rolBilgi(sel).kisa} olarak değişti.` : "Profil kaydedildi.");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Kaydedilemedi.", "error");
@@ -771,69 +1072,139 @@ function ProfileCard() {
     }
   }
 
+  const kurum = KURUM_ETIKET[sel];
+
   return (
     <SettingsCard icon={UserRound} title="Profil ve Rol" sub={user ? `Hesap: ${user}` : undefined}>
-      <form onSubmit={save} className="space-y-3">
-        <FieldGroup label="Rol">
+      <form onSubmit={save} className="space-y-3" noValidate>
+        {osgb ? (
+          <div className="flex items-start gap-2.5 rounded-2xl bg-soft-blue px-3.5 py-2.5 text-[13px] leading-relaxed text-brand-blue">
+            <Building2 size={16} className="mt-0.5 shrink-0" />
+            <span className="min-w-0">
+              Bağlı olduğunuz OSGB: <span className="font-extrabold">{osgb.ad}</span>
+              {rolKilitli ? <span className="block text-[12px] font-semibold text-muted">Rolünüz ve firma atamalarınız OSGB tarafından belirlenir.</span> : null}
+            </span>
+          </div>
+        ) : null}
+
+        <FieldGroup label="Rol" hint={rolKilitli ? undefined : "Rolünüzü değiştirdiğinizde menüler ve ana sayfa yeni role göre düzenlenir."}>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {ROLLER.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => setSel(r.id)}
-                className={cx(
-                  "rounded-2xl border-2 px-3.5 py-2.5 text-left transition",
-                  sel === r.id ? "border-brand-blue bg-soft-blue" : "border-line bg-white hover:border-brand-blue/40",
-                )}
-              >
-                <span className="flex items-center gap-2 text-[13.5px] font-extrabold text-navy">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: r.renk }} />
-                  {r.ad}
-                </span>
-                <span className="mt-0.5 block text-[11.5px] leading-snug text-muted">{r.aciklama}</span>
-              </button>
-            ))}
+            {ROLLER.map((r) => {
+              const on = sel === r.id;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => {
+                    setSel(r.id);
+                    setHata({});
+                  }}
+                  disabled={rolKilitli && !on}
+                  aria-pressed={on}
+                  className={cx(
+                    "min-w-0 rounded-2xl border-2 px-3.5 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-45",
+                    on ? "border-brand-blue bg-soft-blue" : "border-line bg-white hover:border-brand-blue/40",
+                  )}
+                >
+                  <span className="flex items-start gap-2 text-[13.5px] font-extrabold leading-snug text-navy">
+                    <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.renk }} />
+                    <span className="min-w-0">{r.ad}</span>
+                  </span>
+                  <span className="mt-0.5 block text-[11.5px] leading-snug text-muted">{r.aciklama}</span>
+                </button>
+              );
+            })}
           </div>
         </FieldGroup>
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Ad soyad">
-            <Input value={p.ad_soyad ?? ""} onChange={(e) => set("ad_soyad")(e.target.value)} maxLength={80} />
+            <Input value={val("ad_soyad")} onChange={(e) => set("ad_soyad")(e.target.value)} maxLength={80} autoComplete="name" />
           </Field>
-          <Field label={sel === "ogrenci" ? "Kurs / okul" : sel === "hekim" ? "Kurum / OSGB / hastane" : "Firma / OSGB"}>
-            <Input value={p.kurum ?? ""} onChange={(e) => set("kurum")(e.target.value)} maxLength={120} />
+          <Field label="Telefon" error={hata.telefon}>
+            <Input type="tel" inputMode="tel" value={val("telefon")} onChange={(e) => set("telefon")(e.target.value)} placeholder="05XX XXX XX XX" maxLength={20} autoComplete="tel" />
           </Field>
           <Field label="İl">
-            <Input value={p.il ?? ""} onChange={(e) => set("il")(e.target.value)} maxLength={60} />
+            <Input value={val("il")} onChange={(e) => set("il")(e.target.value)} maxLength={40} />
           </Field>
-          {sel === "uzman" ? (
-            <FieldGroup label="Uzmanlık belgesi sınıfı">
-              <Chips
-                options={[
-                  { value: "A", label: "A" },
-                  { value: "B", label: "B" },
-                  { value: "C", label: "C" },
-                ]}
-                value={p.uzmanlik_sinifi ?? ""}
-                onChange={(v) => set("uzmanlik_sinifi")(v)}
-              />
-            </FieldGroup>
+          <Field label="İlçe">
+            <Input value={val("ilce")} onChange={(e) => set("ilce")(e.target.value)} maxLength={60} />
+          </Field>
+
+          <Field label={req("kurum", kurum.label)} error={hata.kurum} className={sel === "osgb" || sel === "ogrenci" ? "sm:col-span-2" : undefined}>
+            <Input value={val("kurum")} onChange={(e) => set("kurum")(e.target.value)} placeholder={kurum.placeholder} maxLength={120} />
+          </Field>
+
+          {sel === "osgb" ? (
+            <>
+              <Field label="Yetki belgesi no">
+                <Input value={val("yetki_belge_no")} onChange={(e) => set("yetki_belge_no")(e.target.value)} maxLength={40} />
+              </Field>
+              <Field label="Vergi no" error={hata.vergi_no}>
+                <Input inputMode="numeric" value={val("vergi_no")} onChange={(e) => set("vergi_no")(e.target.value.replace(/[^\d]/g, ""))} maxLength={11} />
+              </Field>
+              <Field label="Adres" className="sm:col-span-2">
+                <Textarea value={val("adres")} onChange={(e) => set("adres")(e.target.value)} maxLength={240} rows={2} className="!min-h-[72px]" />
+              </Field>
+            </>
           ) : null}
+
+          {sel === "uzman" ? (
+            <>
+              <FieldGroup label={req("uzmanlik_sinifi", "Uzmanlık belgesi sınıfı")} error={hata.uzmanlik_sinifi}>
+                <Chips
+                  options={[
+                    { value: "A", label: "A" },
+                    { value: "B", label: "B" },
+                    { value: "C", label: "C" },
+                  ]}
+                  value={val("uzmanlik_sinifi")}
+                  onChange={(v) => set("uzmanlik_sinifi")(v)}
+                />
+              </FieldGroup>
+              <Field label="Belge no">
+                <Input value={val("belge_no")} onChange={(e) => set("belge_no")(e.target.value)} maxLength={40} />
+              </Field>
+              <Field label="Mesleki deneyim">
+                <SelectInput value={val("deneyim")} onChange={set("deneyim")} options={DENEYIMLER} />
+              </Field>
+            </>
+          ) : null}
+
+          {sel === "hekim" ? (
+            <>
+              <Field label="Belge no">
+                <Input value={val("belge_no")} onChange={(e) => set("belge_no")(e.target.value)} maxLength={40} />
+              </Field>
+              <Field label="Uzmanlık alanı">
+                <Input value={val("uzmanlik_alani")} onChange={(e) => set("uzmanlik_alani")(e.target.value)} placeholder="Örn. İş ve meslek hastalıkları" maxLength={80} />
+              </Field>
+            </>
+          ) : null}
+
+          {sel === "dsp" ? (
+            <>
+              <Field label={req("meslek", "Meslek")} error={hata.meslek}>
+                <SelectInput value={val("meslek")} onChange={set("meslek")} options={MESLEKLER} />
+              </Field>
+              <Field label="Belge no">
+                <Input value={val("belge_no")} onChange={(e) => set("belge_no")(e.target.value)} maxLength={40} />
+              </Field>
+            </>
+          ) : null}
+
           {sel === "ogrenci" ? (
             <>
               <Field label="Hazırlandığınız sınav">
-                <select className="field" value={p.hedef_sinav ?? ""} onChange={(e) => set("hedef_sinav")(e.target.value)}>
-                  <option value="">Seçin</option>
-                  {HEDEF_SINAVLAR.map((x) => (
-                    <option key={x}>{x}</option>
-                  ))}
-                </select>
+                <SelectInput value={val("hedef_sinav")} onChange={set("hedef_sinav")} options={HEDEF_SINAVLAR} />
               </Field>
-              <Field label="Sınav tarihi">
-                <Input type="date" value={p.sinav_tarihi ?? ""} onChange={(e) => set("sinav_tarihi")(e.target.value)} />
+              <Field label="Bölüm">
+                <Input value={val("bolum")} onChange={(e) => set("bolum")(e.target.value)} placeholder="Örn. Makine mühendisliği" maxLength={100} />
               </Field>
             </>
           ) : null}
         </div>
+        <div className="text-[12px] text-muted">* ile işaretli alanlar zorunludur.</div>
         <Button type="submit" icon={Check} loading={busy}>
           {sel !== rol ? "Rolü değiştir ve kaydet" : "Profili kaydet"}
         </Button>
