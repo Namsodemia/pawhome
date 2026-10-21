@@ -3,8 +3,11 @@
 
 Dosyalar 644, klasörler 755 izniyle paketlenir (aksi hâlde sunucu dosyaları okuyamaz ve 403 verir).
 Kullanım: python3 scripts/package.py [hedef.zip] [kurulum-kodu]
+Ortak Claude anahtarı pakete gömülecekse (depoya asla yazılmaz): ISGORA_AI_KEY ve gerekirse ISGORA_AI_WORKSPACE ortam değişkenleri.
 """
+import os
 import pathlib
+import re
 import sys
 import time
 import zipfile
@@ -12,6 +15,13 @@ import zipfile
 out = pathlib.Path(__file__).resolve().parent.parent / "out"
 target = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "isgora-site.zip")
 setup_code = sys.argv[2] if len(sys.argv) > 2 else ""
+ai_key = os.environ.get("ISGORA_AI_KEY", "").strip()
+ai_ws = os.environ.get("ISGORA_AI_WORKSPACE", "").strip()
+for v in (ai_key, ai_ws):
+    if v and not re.fullmatch(r"[A-Za-z0-9_\-]+", v):
+        sys.exit("Anahtar / çalışma alanı kimliği geçersiz karakter içeriyor.")
+if ai_key and not ai_key.startswith("sk-ant-"):
+    sys.exit("ISGORA_AI_KEY 'sk-ant-' ile başlamalı.")
 now = time.localtime()[:6]
 
 
@@ -36,8 +46,10 @@ with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         if rel.startswith("data/") and f.name not in (".htaccess", "index.html"):
             continue
         data = f.read_bytes()
-        if rel == "api/config.php" and setup_code:
-            data = data.replace(b"'setup_code' => '',", f"'setup_code' => '{setup_code}',".encode())
+        if rel == "api/config.php":
+            for key, val in (("setup_code", setup_code), ("anthropic_api_key", ai_key), ("anthropic_workspace_id", ai_ws)):
+                if val:
+                    data = data.replace(f"'{key}' => '',".encode(), f"'{key}' => '{val}',".encode())
         zf.writestr(entry(rel, 0o644, False), data)
 
 print(f"{target} hazır ({target.stat().st_size / 1024 / 1024:.2f} MB)")

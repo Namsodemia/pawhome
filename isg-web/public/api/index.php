@@ -585,7 +585,7 @@ function proxy_anthropic(): void
         $st->execute([$uid, $qid]);
         $counted = (bool) $st->fetchColumn();
         if (!$counted && $acc['left'] <= 0) {
-            json_out(['type' => 'error', 'error' => ['type' => 'billing_error', 'message' => 'Ücretsiz ' . $acc['limit'] . ' yapay zekâ sorgu hakkınız doldu. Devam etmek için Ayarlar > Yapay Zekâ bölümünden kendi Anthropic API anahtarınızı ekleyin.']], 402);
+            json_out(['type' => 'error', 'error' => ['type' => 'billing_error', 'message' => 'Ücretsiz ' . $acc['limit'] . ' yapay zekâ soru hakkınız doldu. Devam etmek için Ayarlar > Yapay Zekâ bölümünden kendi Anthropic API anahtarınızı ekleyin.']], 402);
         }
     }
     // Hakkı biten kullanıcı, zaten sayılmış bir sorgunun araç turlarını yine de tamamlayabilir
@@ -613,6 +613,11 @@ function proxy_anthropic(): void
     ];
     if (!empty($_SERVER['HTTP_ANTHROPIC_BETA'])) {
         $headers[] = 'anthropic-beta: ' . $_SERVER['HTTP_ANTHROPIC_BETA'];
+    }
+    // Ortak anahtar bir çalışma alanına bağlı değilse Anthropic bu başlığı ister (config.php: anthropic_workspace_id)
+    $ws = trim((string) (cfg()['anthropic_workspace_id'] ?? ''));
+    if ($ws !== '' && $key === shared_ai_key() && preg_match('/^[A-Za-z0-9_\-]{4,80}$/', $ws)) {
+        $headers[] = 'anthropic-workspace-id: ' . $ws;
     }
     if (!empty($_SERVER['HTTP_ACCEPT'])) {
         $headers[] = 'accept: ' . $_SERVER['HTTP_ACCEPT'];

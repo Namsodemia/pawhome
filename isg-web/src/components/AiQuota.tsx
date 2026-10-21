@@ -87,7 +87,7 @@ export function AiQuotaBadge({ left, limit, className }: { left: number; limit: 
         <span className="num">
           {left} / {limit}
         </span>{" "}
-        sorgu kaldı
+        soru hakkı kaldı
       </span>
     </span>
   );
@@ -102,7 +102,7 @@ export function AiQuotaWarning({ limit, link = true, className }: { limit: numbe
       <span className="min-w-0 flex-1">
         <span className="block text-[14px] font-extrabold">Ücretsiz sorgularınız bitti</span>
         <span className="mt-0.5 block text-[12.5px] font-semibold leading-relaxed">
-          {link ? "Ayarlar > Yapay Zekâ'dan" : "Aşağıdan"} kendi Anthropic API anahtarınızı ekleyin. ({limit} ücretsiz sorgunun tamamı kullanıldı.)
+          {link ? "Ayarlar > Yapay Zekâ'dan" : "Aşağıdan"} kendi Anthropic API anahtarınızı ekleyin. ({limit} ücretsiz soru hakkının tamamı kullanıldı.)
         </span>
       </span>
     </>

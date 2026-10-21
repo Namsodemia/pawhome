@@ -59,7 +59,7 @@ const FEATURES: { icon: LucideIcon; color: string; title: string; text: string }
     icon: Sparkles,
     color: "#107398",
     title: "İsgora Asistan",
-    text: "Kasa, firma ve risk verinizi görür; “Yasin kasasına 1.500 TL kırtasiye gideri gir” deyin, onayınızla kaydetsin. Her hesaba 5 ücretsiz sorgu.",
+    text: "Kasa, firma ve risk verinizi görür; “Yasin kasasına 1.500 TL kırtasiye gideri gir” deyin, onayınızla kaydetsin. Her hesaba 4 ücretsiz soru.",
   },
   {
     icon: Presentation,
@@ -204,7 +204,7 @@ export default function Landing() {
                 <Lock size={14} className="text-brand-green" /> E-posta doğrulamalı giriş
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <Sparkles size={14} className="text-brand-green" /> 5 ücretsiz yapay zekâ sorgusu
+                <Sparkles size={14} className="text-brand-green" /> 4 ücretsiz yapay zekâ sorusu
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Database size={14} className="text-brand-green" /> SQLite veritabanı

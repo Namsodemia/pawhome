@@ -14,7 +14,7 @@
 | Sınıfım | `/app/sinifim` | Öğrenci: katılım koduyla sınıfa girme, kurumun duyuruları |
 | Eğitimler | `/app/egitim` | Temel İş Sağlığı ve Güvenliği Eğitimi: dersler, pekiştirme soruları, 20 soruluk bitirme sınavı, yazdırılabilir katılım belgesi |
 | Sınav Hazırlık | `/app/sinav` | Ders bazında ön/son test, 25–50 soruluk deneme, süre, cevap anahtarı, geçme notu 70; kendi `sorular.json` bankanızı içe aktarma |
-| İsgora Asistan | `/app/asistan` | Canlı veriyi görür, mevzuat sorularını yanıtlar; kasa hareketi / firma / tahsilat kayıtlarını **onayınızla** girer. Kendi anahtarı olmayan her hesaba 5 ücretsiz sorgu |
+| İsgora Asistan | `/app/asistan` | Canlı veriyi görür, mevzuat sorularını yanıtlar; kasa hareketi / firma / tahsilat kayıtlarını **onayınızla** girer. Kendi anahtarı olmayan her hesaba 4 ücretsiz soru |
 | Mevzuat Rehberi | `/app/mevzuat` | 6331 ve yönetmeliklerden saha özeti, arama |
 | Kaza / Ramak Kala | `/app/kaza` | Olay kaydı, kök neden, SGK 3 iş günü son gün takibi, tutanak yazdırma |
 | Saha Denetimi | `/app/denetim` | 4 kontrol listesi şablonu, uygunluk puanı, PDF rapor |
@@ -58,7 +58,7 @@ Tüm rollerde ad soyad*, e-posta*, cep telefonu*, il* (ilçe isteğe bağlı), �
 
 Varsayılan model **Claude Opus 5.5**; Ayarlar'dan Sonnet 5.5 veya Haiku 5.5 seçilebilir. İstekler giriş yapmış kullanıcı için `/api/anthropic/…` vekili (PHP cURL) üzerinden gider.
 
-- **Ücretsiz deneme:** Yönetici, **Ayarlar → Yapay Zekâ → Ortak API anahtarı**'na bir anahtar girer (ya da `api/config.php` → `anthropic_api_key`). Kendi anahtarı olmayan her kullanıcı bu anahtarla **5 sorgu** yapar (`ucretsiz_ai_sorgu` ile değiştirilebilir). Asistana sorulan bir soru, araç turlarıyla birlikte tek sorgu sayılır; başarısız istekler sayılmaz. Yönetici sınırsızdır.
+- **Ücretsiz deneme:** Yönetici, **Ayarlar → Yapay Zekâ → Ortak API anahtarı**'na bir anahtar girer (ya da `api/config.php` → `anthropic_api_key`). Kendi anahtarı olmayan her kullanıcı bu anahtarla **4 soru** sorar (`ucretsiz_ai_sorgu` ile değiştirilebilir). Anahtar bir çalışma alanına bağlı değilse `anthropic_workspace_id` doldurulmalıdır. Asistana sorulan bir soru, araç turlarıyla birlikte tek sorgu sayılır; başarısız istekler sayılmaz. Yönetici sınırsızdır.
 - **Kendi anahtarı:** Kullanıcı **Ayarlar → Yapay Zekâ**'dan anahtarını bir kez girer; sunucuda o kullanıcıya bağlı saklanır, tüm cihazlarında sınırsız geçerli olur.
 
 ## cPanel'e yükleme

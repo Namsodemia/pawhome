@@ -9,7 +9,7 @@
  *
  * anthropic_api_key  : (İsteğe bağlı) Ortak Claude anahtarı. Yönetici bunu Ayarlar > Yapay Zekâ bölümünden de girebilir.
  *                      Kendi anahtarı olmayan her kullanıcı bu anahtarla "ucretsiz_ai_sorgu" kadar sorgu yapar.
- * ucretsiz_ai_sorgu  : Kullanıcı başına ücretsiz yapay zekâ sorgusu (varsayılan 5). Yönetici sınırsızdır.
+ * ucretsiz_ai_sorgu  : Kullanıcı başına ücretsiz yapay zekâ sorgusu (varsayılan 4). Yönetici sınırsızdır.
  *
  * E-posta (doğrulama kodları): varsayılan olarak sunucunun PHP mail() işlevi kullanılır (cPanel'de hazırdır).
  * mail_from          : Gönderen adresi (boşsa no-reply@alanadiniz). cPanel'de bu adla bir e-posta hesabı açmanız önerilir.
@@ -22,7 +22,9 @@ return [
     'otp_zorunlu' => true,
 
     'anthropic_api_key' => '',
-    'ucretsiz_ai_sorgu' => 5,
+    'ucretsiz_ai_sorgu' => 4,
+    // Anahtar bir çalışma alanına (workspace) bağlı değilse Anthropic Console > Settings > Workspaces'taki kimlik (wrkspc_…)
+    'anthropic_workspace_id' => '',
 
     'mail_from' => '',
     'mail_from_name' => 'İsgora',

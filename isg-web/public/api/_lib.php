@@ -565,7 +565,7 @@ function shared_ai_key(): string
 
 function ai_free_limit(): int
 {
-    return max(0, (int) (cfg()['ucretsiz_ai_sorgu'] ?? 5));
+    return max(0, (int) (cfg()['ucretsiz_ai_sorgu'] ?? 4));
 }
 
 function ai_used(int $uid): int
@@ -579,7 +579,7 @@ function ai_used(int $uid): int
  * Kullanıcının yapay zekâ erişimi:
  *  1) kendi anahtarı → sınırsız
  *  2) OSGB çalışanıysa ve OSGB'si anahtar kaydetmişse → OSGB'nin anahtarı, sınırsız
- *  3) ortak anahtar → yönetici sınırsız, diğerleri ücretsiz deneme hakkı kadar (varsayılan 5 sorgu)
+ *  3) ortak anahtar → yönetici sınırsız, diğerleri ücretsiz deneme hakkı kadar (varsayılan 4 sorgu)
  */
 function ai_access(array $u): array
 {

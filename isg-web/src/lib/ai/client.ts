@@ -205,14 +205,14 @@ export function extractJson<T = unknown>(text: string): T {
 }
 
 export function quotaMessage(limit: number): string {
-  return `Ücretsiz ${limit} yapay zekâ sorgu hakkınız doldu. Devam etmek için Ayarlar > Yapay Zekâ bölümünden kendi Anthropic API anahtarınızı ekleyin.`;
+  return `Ücretsiz ${limit} yapay zekâ soru hakkınız doldu. Devam etmek için Ayarlar > Yapay Zekâ bölümünden kendi Anthropic API anahtarınızı ekleyin.`;
 }
 
 export function describeError(e: unknown): string {
   if (e instanceof AiError) return e.message;
   if (e instanceof Anthropic.APIError && e.status === 402) {
     const msg = (e.error as { error?: { message?: string } } | undefined)?.error?.message;
-    return msg || quotaMessage(5);
+    return msg || quotaMessage(4);
   }
   if (e instanceof Anthropic.AuthenticationError) return "API anahtarı geçersiz. Ayarlardan kontrol edin.";
   if (e instanceof Anthropic.PermissionDeniedError) return e.message?.includes("Oturum") ? "Oturum süresi doldu; sayfayı yenileyip tekrar giriş yapın." : "Erişim reddedildi. API anahtarı yetkilerini kontrol edin.";

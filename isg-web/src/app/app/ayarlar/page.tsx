@@ -160,7 +160,7 @@ function modeInfo(mode: AiMode | null, srv: ServerStatus | null, ctx: { yonetici
     if (ctx.yonetici) return { text: "Etkin mod: ortak sunucu anahtarı — yönetici olarak sınırsız kullanırsınız.", ...blue };
     if (ctx.osgb) return { text: "Etkin mod: bağlı olduğunuz OSGB'nin anahtarı (sınırsız).", ...blue };
   } else if (srv?.free && srv.sharedKey) {
-    return { text: `Etkin mod: ücretsiz deneme — ortak sunucu anahtarı (${srv.free.left} / ${srv.free.limit} sorgu kaldı).`, ...blue };
+    return { text: `Etkin mod: ücretsiz deneme — ortak sunucu anahtarı (${srv.free.left} / ${srv.free.limit} soru hakkı kaldı).`, ...blue };
   }
   return { text: "Etkin mod: sunucu anahtarı (istekler uygulama sunucusu üzerinden gider).", ...blue };
 }
