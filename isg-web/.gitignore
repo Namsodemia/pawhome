@@ -13,3 +13,4 @@ public/data/config.local.php
 
 # cPanel paketi
 isgora-site.zip
+__pycache__/
