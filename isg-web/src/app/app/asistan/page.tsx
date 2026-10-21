@@ -198,7 +198,7 @@ export default function AsistanPage() {
       return;
     }
     if (mode === "none") {
-      toast("Asistan için Ayarlar'dan API anahtarı girin.", "error");
+      toast("Yapay zekâ henüz etkin değil; site yöneticisi ortak anahtarı tanımlayınca açılır.", "error");
       return;
     }
     setText("");
@@ -239,7 +239,7 @@ export default function AsistanPage() {
             className="mb-4 flex items-center gap-3 rounded-2xl border border-[#F3DFA9] bg-soft-warn px-4 py-3 text-[14px] font-bold text-warn transition hover:brightness-[.98]"
           >
             <KeyRound size={18} className="shrink-0" />
-            <span className="flex-1">Asistan için Ayarlar&apos;dan API anahtarı girin.</span>
+            <span className="flex-1">Yapay zekâ henüz etkin değil; site yöneticisi ortak anahtarı tanımlayınca açılır.</span>
             <ChevronRight size={18} className="shrink-0" />
           </Link>
         ) : null}

@@ -404,7 +404,7 @@ export default function Landing() {
         <div className="mx-auto grid grid-cols-1 max-w-6xl gap-6 px-4 md:grid-cols-3 md:px-6">
           {[
             [Database, "Verileriniz sizde", "Kayıtlar kendi hosting'inizdeki SQLite veritabanında, şifreli ve e-posta doğrulamalı girişle korunur. Her cihazdan aynı verilere ulaşırsınız; Ayarlar'dan JSON yedek de alabilirsiniz."],
-            [Sparkles, "Claude ile çalışır", "Yapay zekâ özellikleri Anthropic Claude ile çalışır. API anahtarınızı bir kez Ayarlar'dan girin; sunucuda saklanır ve tüm cihazlarda geçerli olur."],
+            [Sparkles, "Claude ile çalışır", "Yapay zekâ özellikleri Anthropic Claude ile çalışır. Anahtar girmenize gerek yok: her hesaba 4 ücretsiz soru hakkı tanınır."],
             [Smartphone, "Telefona kurun", "Tarayıcı menüsünden “Ana ekrana ekle” deyin; İsgora uygulama gibi tam ekran açılır."],
           ].map(([Icon, t, d]) => {
             const I = Icon as LucideIcon;

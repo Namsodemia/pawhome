@@ -576,33 +576,30 @@ function ai_used(int $uid): int
 }
 
 /**
- * Kullanıcının yapay zekâ erişimi:
- *  1) kendi anahtarı → sınırsız
- *  2) OSGB çalışanıysa ve OSGB'si anahtar kaydetmişse → OSGB'nin anahtarı, sınırsız
- *  3) ortak anahtar → yönetici sınırsız, diğerleri ücretsiz deneme hakkı kadar (varsayılan 4 sorgu)
+ * Kullanıcının yapay zekâ erişimi (kullanıcılar kendi anahtarını girmez):
+ *  1) yönetici → ortak anahtar (ya da kendi kaydettiği anahtar), sınırsız
+ *  2) yöneticinin OSGB'sine bağlı çalışan hesabı → ortak anahtar, sınırsız
+ *  3) diğer herkes → ortak anahtar, ücretsiz soru hakkı kadar (varsayılan 4)
  */
 function ai_access(array $u): array
 {
     $uid = (int) $u['id'];
-    $own = trim((string) umeta_get($uid, 'anthropic_api_key', ''));
     $shared = shared_ai_key();
     $limit = ai_free_limit();
     $used = ai_used($uid);
-    $base = ['own' => $own !== '', 'shared' => $shared !== '', 'limit' => $limit, 'used' => $used, 'left' => max(0, $limit - $used), 'unlimited' => false, 'metered' => false];
-    if ($own !== '') {
-        return $base + ['key' => $own];
-    }
-    if (!empty($u['osgb_id'])) {
-        $orgKey = trim((string) umeta_get((int) $u['osgb_id'], 'anthropic_api_key', ''));
-        if ($orgKey !== '') {
-            return ['unlimited' => true] + $base + ['key' => $orgKey];
-        }
+    $base = ['own' => false, 'shared' => $shared !== '', 'limit' => $limit, 'used' => $used, 'left' => max(0, $limit - $used), 'unlimited' => false, 'metered' => false];
+    if ((int) $u['yonetici'] === 1) {
+        $own = trim((string) umeta_get($uid, 'anthropic_api_key', ''));
+        return ['unlimited' => true] + $base + ['key' => $own !== '' ? $own : $shared];
     }
     if ($shared === '') {
         return $base + ['key' => ''];
     }
-    if ((int) $u['yonetici'] === 1) {
-        return ['unlimited' => true] + $base + ['key' => $shared];
+    if (!empty($u['osgb_id'])) {
+        $org = user_by_id((int) $u['osgb_id']);
+        if ($org && (int) $org['yonetici'] === 1) {
+            return ['unlimited' => true] + $base + ['key' => $shared];
+        }
     }
     return ['metered' => true] + $base + ['key' => $base['left'] > 0 ? $shared : ''];
 }

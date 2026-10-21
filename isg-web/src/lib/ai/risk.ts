@@ -184,7 +184,7 @@ function isAbort(e: unknown, signal?: AbortSignal): boolean {
 
 // ---------------------------------------------------------------- plan
 
-export async function plan(inp: RiskInput, signal?: AbortSignal): Promise<Plan> {
+export async function plan(inp: RiskInput, signal?: AbortSignal, queryId?: string): Promise<Plan> {
   const itemCount = Math.max(1, Math.min(300, Math.round(inp.item_count) || 1));
   const hazardLine =
     inp.hazard_class && inp.hazard_class !== "OTOMATİK"
@@ -202,7 +202,7 @@ export async function plan(inp: RiskInput, signal?: AbortSignal): Promise<Plan> 
     `sections içindeki count değerlerinin toplamı TAM OLARAK ${itemCount} olmalı. ` +
     "Bölüm başına 6-14 madde uygundur. Bölümler işletmenin gerçek alanlarına göre olmalı; " +
     "bolum adları KISA olsun (2-5 kelime), başına numara EKLEME.";
-  const j = await callJson<PlanJson>({ system: PLAN_SYSTEM, user: prompt, schema: PLAN_SCHEMA, maxTokens: 16000, signal });
+  const j = await callJson<PlanJson>({ system: PLAN_SYSTEM, user: prompt, schema: PLAN_SCHEMA, maxTokens: 16000, signal, queryId });
 
   // Aynı adla iki kez gelen bölümleri birleştir (devam etme mantığı bölüm adına göre çalışır).
   let sections: { bolum: string; count: number }[] = [];
@@ -264,7 +264,7 @@ export async function plan(inp: RiskInput, signal?: AbortSignal): Promise<Plan> 
 
 // ---------------------------------------------------------------- sektöre özel uygulama
 
-export async function sektorUygulama(inp: BizInput, signal?: AbortSignal): Promise<string> {
+export async function sektorUygulama(inp: BizInput, signal?: AbortSignal, queryId?: string): Promise<string> {
   const prompt =
     `İşletme (NACE ${inp.nace_code} - ${inp.sector_name}):\n${inp.description}\n\n` +
     "Bu işletmenin risk değerlendirme prosedüründeki 'SEKTÖRE ÖZEL UYGULAMA' bölümünü yaz. " +
@@ -273,7 +273,7 @@ export async function sektorUygulama(inp: BizInput, signal?: AbortSignal): Promi
     "Genel/klişe değil, o sektöre özel; Türkçe ve TDK imlasına uygun.\n" +
     'Şu JSON: {"metin": "1) ... . 2) ... . 3) ... ."}  (maddeler arası ". " ile, TEK satır)';
   try {
-    const j = await callJson<{ metin?: string }>({ system: SYSTEM, user: prompt, schema: SEKTOR_SCHEMA, maxTokens: 8000, signal });
+    const j = await callJson<{ metin?: string }>({ system: SYSTEM, user: prompt, schema: SEKTOR_SCHEMA, maxTokens: 8000, signal, queryId });
     return String(j.metin ?? "")
       .replace(/\s*\n+\s*/g, " ")
       .trim();
@@ -285,14 +285,14 @@ export async function sektorUygulama(inp: BizInput, signal?: AbortSignal): Promi
 
 // ---------------------------------------------------------------- bölüm satırları
 
-export async function section(inp: BizInput, bolum: string, count: number, signal?: AbortSignal): Promise<RiskRowInput[]> {
+export async function section(inp: BizInput, bolum: string, count: number, signal?: AbortSignal, queryId?: string): Promise<RiskRowInput[]> {
   const n = Math.max(1, Math.min(40, count));
   const schema = '{"rows":[{"bolum":"","faaliyet":"","tehlike":"","risk":"","o":3,"s":4,"onlem":"","sorumlu":"İŞVEREN"}]}';
   const prompt =
     `İşletme (NACE ${inp.nace_code} - ${inp.sector_name}):\n${inp.description}\n\n` +
     `Bölüm: ${bolum}\nBu bölüm için tam ${n} adet farklı, işletmeye özel risk maddesi üret. ` +
     `Her maddede bolum alanına '${bolum}' yaz.\nŞu JSON: ${schema}`;
-  let rows = normalizeRows((await callJson<{ rows?: unknown }>({ system: SYSTEM, user: prompt, schema: ROWS_SCHEMA, maxTokens: 32000, signal })).rows);
+  let rows = normalizeRows((await callJson<{ rows?: unknown }>({ system: SYSTEM, user: prompt, schema: ROWS_SCHEMA, maxTokens: 32000, signal, queryId })).rows);
 
   // Eksik gelirse en fazla 2 tamamlama çağrısı; daha önce üretilen faaliyetler listelenir ki tekrar etmesin.
   let attempts = 0;
@@ -309,7 +309,7 @@ export async function section(inp: BizInput, bolum: string, count: number, signa
       `Bölüm: ${bolum}\nBu bölüm için ${missing} adet DAHA, öncekilerden FARKLI, işletmeye özel risk maddesi üret. ` +
       `Şu faaliyetler ZATEN üretildi, TEKRARLAMA: ${done}\nHer maddede bolum alanına '${bolum}' yaz.\nŞu JSON: ${schema}`;
     try {
-      const more = await callJson<{ rows?: unknown }>({ system: SYSTEM, user: topup, schema: ROWS_SCHEMA, maxTokens: 20000, signal });
+      const more = await callJson<{ rows?: unknown }>({ system: SYSTEM, user: topup, schema: ROWS_SCHEMA, maxTokens: 20000, signal, queryId });
       rows = rows.concat(normalizeRows(more.rows));
     } catch (e) {
       if (isAbort(e, signal)) throw e;

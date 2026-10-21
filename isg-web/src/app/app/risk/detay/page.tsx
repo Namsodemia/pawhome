@@ -154,7 +154,7 @@ function RiskDetailPageView() {
 
   function generate() {
     if (mode === "none") {
-      toast("Yapay zekâ için API anahtarı girilmemiş. Ayarlar'dan ekleyin.", "error");
+      toast("Yapay zekâ henüz etkin değil; site yöneticisi ortak anahtarı tanımlayınca açılır.", "error");
       return;
     }
     void startGeneration(an.id);
@@ -162,7 +162,7 @@ function RiskDetailPageView() {
 
   function resume() {
     if (mode === "none") {
-      toast("Yapay zekâ için API anahtarı girilmemiş. Ayarlar'dan ekleyin.", "error");
+      toast("Yapay zekâ henüz etkin değil; site yöneticisi ortak anahtarı tanımlayınca açılır.", "error");
       return;
     }
     void resumeGeneration(an.id);
@@ -330,7 +330,7 @@ function RiskDetailPageView() {
             title="Henüz madde yok."
             text={
               mode === "none"
-                ? "Yapay zekâ için API anahtarı girilmemiş. Ayarlar'dan ekleyin ya da maddeleri elle girin."
+                ? "Yapay zekâ henüz etkin değil (site yöneticisi ortak anahtarı tanımlamalı); maddeleri elle girebilirsiniz."
                 : "Yapay zekâ işletme tanımınıza göre maddeleri bölüm bölüm üretsin ya da maddeleri elle ekleyin."
             }
             action={

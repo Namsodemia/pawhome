@@ -148,7 +148,7 @@ function OsgbDashboard() {
 
           {mode === "none" ? (
             <Banner href="/app/ayarlar" icon={KeyRound} tone="blue">
-              Yapay zekâ için API anahtarı girilmemiş. Ayarlar&apos;dan ekleyin.
+              Yapay zekâ henüz etkin değil; site yöneticisi ortak anahtarı tanımlayınca açılır.
             </Banner>
           ) : null}
           {os.bildirilmemis > 0 ? (

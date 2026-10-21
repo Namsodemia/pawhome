@@ -8,7 +8,7 @@
 import { create } from "zustand";
 import type { Analysis, RiskRow } from "@/lib/types";
 import { useStore } from "@/lib/store";
-import { describeError } from "./client";
+import { describeError, newQueryId } from "./client";
 import { plan, section, sektorUygulama, type BizInput, type HazardChoice } from "./risk";
 
 export interface RiskJob {
@@ -143,8 +143,11 @@ export function startGeneration(id: number): Promise<void> {
     const a = getAnalysis(id);
     const inp = bizOf(a);
     const hazard: HazardChoice = a.hazard_auto ? "OTOMATİK" : a.hazard_class;
+    // Bütün üretim (plan + bölümler + sektör metni) tek yapay zekâ hakkı sayılır
+    const qid = newQueryId();
+    useStore.getState().updateAnalysis(id, { sorgu_id: qid });
     progress({ step: "İşletme planlanıyor…", done: 0, total: 1 });
-    const p = await plan({ ...inp, item_count: a.item_count, hazard_class: hazard }, signal);
+    const p = await plan({ ...inp, item_count: a.item_count, hazard_class: hazard }, signal, qid);
     checkAbort(signal);
     getAnalysis(id);
     const st = useStore.getState();
@@ -156,7 +159,7 @@ export function startGeneration(id: number): Promise<void> {
     let added = 0;
     for (const s of p.sections) {
       progress({ step: `${s.bolum} bölümü üretiliyor (${s.count} madde)…`, done, total });
-      const rows = await section(inp, s.bolum, s.count, signal);
+      const rows = await section(inp, s.bolum, s.count, signal, qid);
       checkAbort(signal);
       getAnalysis(id);
       useStore.getState().appendRows(id, rows);
@@ -165,7 +168,7 @@ export function startGeneration(id: number): Promise<void> {
       progress({ done, added });
     }
     progress({ step: "Sektöre özel uygulama metni yazılıyor…", done, total });
-    const su = await sektorUygulama(inp, signal);
+    const su = await sektorUygulama(inp, signal, qid);
     checkAbort(signal);
     getAnalysis(id);
     useStore.getState().updateAnalysis(id, { sektor_uygulama: su, status: "hazir" });
@@ -184,6 +187,9 @@ export function resumeGeneration(id: number): Promise<void> {
     const missing = a.item_count - rows.length;
     const needSektor = !a.sektor_uygulama;
     const inp = bizOf(a);
+    // Yarım kalan üretim aynı hakla tamamlanır
+    const qid = a.sorgu_id || newQueryId();
+    if (!a.sorgu_id) useStore.getState().updateAnalysis(id, { sorgu_id: qid });
 
     if (missing <= 0 && !needSektor) {
       useStore.getState().updateAnalysis(id, { status: "hazir" });
@@ -197,7 +203,7 @@ export function resumeGeneration(id: number): Promise<void> {
       const metaMissing = !a.activity_desc && !a.personnel && !a.employer_label;
       const hazard: HazardChoice = a.hazard_auto && metaMissing ? "OTOMATİK" : a.hazard_class;
       progress({ step: "Eksik maddeler planlanıyor…", done: 0, total: 1 });
-      const p = await plan({ ...inp, item_count: missing, hazard_class: hazard }, signal);
+      const p = await plan({ ...inp, item_count: missing, hazard_class: hazard }, signal, qid);
       checkAbort(signal);
       getAnalysis(id);
       if (metaMissing) useStore.getState().updateAnalysis(id, { ...p.meta });
@@ -220,7 +226,7 @@ export function resumeGeneration(id: number): Promise<void> {
       const total = list.length + (needSektor ? 1 : 0);
       for (const s of list) {
         progress({ step: `${s.bolum} bölümü üretiliyor (${s.count} madde)…`, done, total });
-        const out = await section(inp, s.bolum, s.count, signal);
+        const out = await section(inp, s.bolum, s.count, signal, qid);
         checkAbort(signal);
         getAnalysis(id);
         useStore.getState().appendRows(id, out);
@@ -232,7 +238,7 @@ export function resumeGeneration(id: number): Promise<void> {
 
     if (needSektor) {
       progress({ step: "Sektöre özel uygulama metni yazılıyor…", done, total: done + 1 });
-      const su = await sektorUygulama(inp, signal);
+      const su = await sektorUygulama(inp, signal, qid);
       checkAbort(signal);
       getAnalysis(id);
       if (su) useStore.getState().updateAnalysis(id, { sektor_uygulama: su });

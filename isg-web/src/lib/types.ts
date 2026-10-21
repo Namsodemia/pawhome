@@ -89,6 +89,8 @@ export interface Analysis {
   status: AnalysisStatus;
   analysis_date: string;
   created_at: string;
+  /** Üretimin yapay zekâ sorgu kimliği: yarım kalan üretimi tamamlamak yeni hak harcamaz */
+  sorgu_id?: string;
 }
 
 export interface RiskRow {

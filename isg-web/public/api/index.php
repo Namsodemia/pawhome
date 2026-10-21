@@ -131,8 +131,13 @@ try {
             break;
 
         case 'ai-key':
-            $uid = (int) require_user()['id'];
+            $u = require_user();
+            $uid = (int) $u['id'];
             require_app_header();
+            // Kullanıcılar kendi anahtarını girmez; yapay zekâ yöneticinin ortak anahtarıyla çalışır
+            if ((int) $u['yonetici'] !== 1) {
+                fail_json(403, 'API anahtarını yalnızca site yöneticisi tanımlar.');
+            }
             if ($method === 'DELETE') {
                 umeta_set($uid, 'anthropic_api_key', null);
                 json_out(['ok' => true]);
@@ -585,13 +590,13 @@ function proxy_anthropic(): void
         $st->execute([$uid, $qid]);
         $counted = (bool) $st->fetchColumn();
         if (!$counted && $acc['left'] <= 0) {
-            json_out(['type' => 'error', 'error' => ['type' => 'billing_error', 'message' => 'Ücretsiz ' . $acc['limit'] . ' yapay zekâ soru hakkınız doldu. Devam etmek için Ayarlar > Yapay Zekâ bölümünden kendi Anthropic API anahtarınızı ekleyin.']], 402);
+            json_out(['type' => 'error', 'error' => ['type' => 'billing_error', 'message' => 'Ücretsiz ' . $acc['limit'] . ' yapay zekâ soru hakkınızın tamamını kullandınız. Daha fazla kullanım için site yöneticisiyle iletişime geçin.']], 402);
         }
     }
     // Hakkı biten kullanıcı, zaten sayılmış bir sorgunun araç turlarını yine de tamamlayabilir
     $key = $acc['key'] !== '' ? $acc['key'] : ($acc['metered'] && $counted ? shared_ai_key() : '');
     if ($key === '') {
-        json_out(['type' => 'error', 'error' => ['type' => 'api_error', 'message' => 'Sunucuda API anahtarı tanımlı değil. Ayarlar > Yapay Zekâ bölümünden ekleyin.']], 503);
+        json_out(['type' => 'error', 'error' => ['type' => 'api_error', 'message' => 'Yapay zekâ henüz etkin değil; site yöneticisi ortak anahtarı tanımlayınca açılır.']], 503);
     }
     if (($_GET['p'] ?? '') !== 'v1/messages') {
         json_out(['type' => 'error', 'error' => ['type' => 'not_found_error', 'message' => 'Desteklenmeyen uç nokta.']], 404);

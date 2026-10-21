@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Building2, Clock3, KeyRound, Layers, ListChecks, Sparkles } from "lucide-react";
 import { Button, Card, Chips, Field, Input, PageHeader, Textarea } from "@/components/ui";
@@ -93,14 +92,8 @@ export default function NewRiskPage() {
                 <KeyRound size={18} />
               </span>
               <div className="text-[13.5px] leading-relaxed text-[#7A5312]">
-                <div className="font-bold">Yapay zekâ için API anahtarı girilmemiş.</div>
-                <div>
-                  Üretim için{" "}
-                  <Link href="/app/ayarlar" className="font-bold text-brand-blue underline underline-offset-2">
-                    Ayarlar
-                  </Link>
-                  &apos;dan anahtarınızı ekleyin. Analizi şimdi taslak olarak kaydedip üretimi sonra başlatabilirsiniz.
-                </div>
+                <div className="font-bold">Yapay zekâ henüz etkin değil.</div>
+                <div>Site yöneticisi ortak anahtarı tanımlayınca üretim açılır. Analizi şimdi taslak olarak kaydedip üretimi sonra başlatabilirsiniz.</div>
               </div>
             </div>
           ) : null}

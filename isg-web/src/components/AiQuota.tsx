@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { ChevronRight, Gift, KeyRound } from "lucide-react";
+import { Gift, KeyRound } from "lucide-react";
 import { getApiKey, serverStatus, subscribeAiConfig, type ServerStatus } from "@/lib/ai/client";
 import { cx } from "@/lib/format";
 
@@ -74,7 +73,7 @@ export function AiQuotaBadge({ left, limit, className }: { left: number; limit: 
   const low = left <= 1;
   return (
     <span
-      title="Kendi Anthropic API anahtarınızı eklediğinizde sınır kalkar."
+      title={`Her hesaba ${limit} ücretsiz yapay zekâ soru hakkı tanınır.`}
       className={cx(
         "inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-bold leading-tight",
         low ? "bg-soft-warn text-warn" : "bg-soft-blue text-brand-blue",
@@ -93,26 +92,20 @@ export function AiQuotaBadge({ left, limit, className }: { left: number; limit: 
   );
 }
 
-export function AiQuotaWarning({ limit, link = true, className }: { limit: number; link?: boolean; className?: string }) {
+/** Hak bitince bilgi kartı. `link` eski çağrılarla uyum için kabul edilir; kullanıcılar anahtar girmediğinden Ayarlar'a yönlendirilmez. */
+export function AiQuotaWarning({ limit, className }: { limit: number; link?: boolean; className?: string }) {
   const body = (
     <>
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white">
         <KeyRound size={17} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-extrabold">Ücretsiz sorgularınız bitti</span>
+        <span className="block text-[14px] font-extrabold">Ücretsiz soru hakkınız bitti</span>
         <span className="mt-0.5 block text-[12.5px] font-semibold leading-relaxed">
-          {link ? "Ayarlar > Yapay Zekâ'dan" : "Aşağıdan"} kendi Anthropic API anahtarınızı ekleyin. ({limit} ücretsiz soru hakkının tamamı kullanıldı.)
+          {limit} ücretsiz yapay zekâ sorusunun tamamını kullandınız. Daha fazla kullanım için site yöneticisiyle iletişime geçin.
         </span>
       </span>
     </>
   );
-  const cls = cx("flex items-center gap-3 rounded-2xl border border-[#F3DFA9] bg-soft-warn px-4 py-3 text-warn", className);
-  if (!link) return <div className={cls}>{body}</div>;
-  return (
-    <Link href="/app/ayarlar/" className={cx(cls, "transition hover:brightness-[.98]")}>
-      {body}
-      <ChevronRight size={18} className="shrink-0" />
-    </Link>
-  );
+  return <div className={cx("flex items-center gap-3 rounded-2xl border border-[#F3DFA9] bg-soft-warn px-4 py-3 text-warn", className)}>{body}</div>;
 }

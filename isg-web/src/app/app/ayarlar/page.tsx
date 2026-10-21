@@ -151,8 +151,10 @@ function modeInfo(mode: AiMode | null, srv: ServerStatus | null, ctx: { yonetici
   if (mode === "key") return { text: "Etkin mod: bu tarayıcıdaki kendi API anahtarınız (istekler tarayıcıdan doğrudan Anthropic'e gider).", tone: "text-success", dot: "bg-success" };
   if (mode === "none") {
     return ctx.bitti
-      ? { text: "Yapay zekâ kapalı: ücretsiz sorgularınız bitti; kendi API anahtarınızı ekleyin.", tone: "text-danger", dot: "bg-danger" }
-      : { text: "Yapay zekâ kapalı: API anahtarı girilmemiş.", tone: "text-danger", dot: "bg-danger" };
+      ? { text: "Yapay zekâ kapalı: ücretsiz soru hakkınızın tamamını kullandınız.", tone: "text-danger", dot: "bg-danger" }
+      : ctx.yonetici
+        ? { text: "Yapay zekâ kapalı: aşağıdan ortak API anahtarını tanımlayın.", tone: "text-danger", dot: "bg-danger" }
+        : { text: "Yapay zekâ henüz etkin değil; site yöneticisinin ortak anahtarı tanımlaması gerekiyor.", tone: "text-danger", dot: "bg-danger" };
   }
   const blue = { tone: "text-brand-blue", dot: "bg-brand-blue" };
   if (srv?.ownKey) return { text: "Etkin mod: sunucuda kayıtlı kendi anahtarınız (istekler uygulama sunucusu üzerinden gider).", ...blue };
@@ -322,17 +324,21 @@ function AiCard() {
     <SettingsCard
       icon={Sparkles}
       title="Yapay Zekâ"
-      sub={backend ? "Anahtar sunucudaki veritabanında saklanır; tarayıcıya geri gönderilmez." : "Anahtar yalnızca bu tarayıcıda saklanır."}
+      sub={backend ? "Yapay zekâ, site yöneticisinin tanımladığı ortak anahtarla çalışır; anahtar tarayıcıya gönderilmez." : "Anahtar yalnızca bu tarayıcıda saklanır."}
     >
       {quota.kind === "left" ? (
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <AiQuotaBadge left={quota.left} limit={quota.limit} />
-          <span className="text-[12px] leading-snug text-muted">Kendi anahtarınızı eklediğinizde sınır kalkar.</span>
+          <span className="text-[12px] leading-snug text-muted">Her hesaba {quota.limit} ücretsiz soru hakkı tanınır.</span>
         </div>
       ) : quota.kind === "bitti" ? (
         <AiQuotaWarning limit={quota.limit} link={false} className="mb-4" />
       ) : null}
 
+      {/* Kullanıcılar kendi anahtarını girmez: sunucuda yalnızca yöneticinin ortak anahtarı kullanılır.
+          Kendi anahtar alanı yalnızca PHP arka ucu olmayan yerel modda (geliştirme) görünür. */}
+      {!backend ? (
+        <>
       {ownServerKey ? (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-soft-green px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-success">
           <CircleCheck size={16} className="shrink-0" />
@@ -393,6 +399,8 @@ function AiCard() {
           </Button>
         </form>
       ) : null}
+        </>
+      ) : null}
 
       <div className={cx("mt-4 flex items-start gap-2 text-[12.5px] font-semibold leading-relaxed", info?.tone ?? "text-muted")}>
         <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", info?.dot ?? "bg-line")} />
@@ -428,9 +436,12 @@ function AiCard() {
         <Chips options={EFFORTS.map((e) => ({ value: e.value, label: e.label }))} value={settings.effort} onChange={(v) => useStore.getState().setSettings({ effort: v })} />
       </FieldGroup>
 
-      <Button kind="secondary" icon={PlugZap} onClick={testConnection} loading={testing} disabled={mode === "none"} className="mt-5">
-        Bağlantıyı test et
-      </Button>
+      {/* Test isteği de bir soru hakkı harcar: yalnızca yönetici (ve yerel mod) görür */}
+      {!backend || yonetici ? (
+        <Button kind="secondary" icon={PlugZap} onClick={testConnection} loading={testing} disabled={mode === "none"} className="mt-5">
+          Bağlantıyı test et
+        </Button>
+      ) : null}
 
       {backend && yonetici ? <OrtakAnahtar /> : null}
     </SettingsCard>
@@ -493,7 +504,7 @@ function OrtakAnahtar() {
   async function remove() {
     const ok = await confirmDialog({
       title: "Ortak anahtarı kaldır",
-      text: "Kendi anahtarı olmayan kullanıcılar ücretsiz sorgu yapamaz (config.php'de bir anahtar tanımlıysa o kullanılmaya devam eder).",
+      text: "Kullanıcılar yapay zekâyı kullanamaz (config.php'de bir anahtar tanımlıysa o kullanılmaya devam eder).",
       okLabel: "Kaldır",
       danger: true,
     });
@@ -519,7 +530,7 @@ function OrtakAnahtar() {
         <Badge tone="navy">Yönetici</Badge>
       </div>
       <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
-        Kendi anahtarı olmayan her kullanıcı bu anahtarla <span className="num font-bold text-navy">{limit}</span> ücretsiz sorgu yapabilir; yönetici sınırsız kullanır.
+        Tüm kullanıcılar yapay zekâyı bu anahtarla kullanır: her hesaba <span className="num font-bold text-navy">{limit}</span> ücretsiz soru hakkı tanınır; yönetici sınırsız kullanır.
       </p>
 
       {loadErr ? (
@@ -544,7 +555,7 @@ function OrtakAnahtar() {
         </div>
       ) : (
         <div className="mt-3 rounded-2xl border border-[#F3DFA9] bg-soft-warn px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-warn">
-          Ortak anahtar tanımlı değil — kendi anahtarı olmayan kullanıcılar yapay zekâyı kullanamaz.
+          Ortak anahtar tanımlı değil — kullanıcılar yapay zekâyı kullanamaz.
         </div>
       )}
 

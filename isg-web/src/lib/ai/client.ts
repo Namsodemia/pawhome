@@ -143,7 +143,7 @@ export async function client(): Promise<Anthropic> {
   // Ortak anahtar varken hakkı bitmiş olsa da vekile gidilir: sayılmış bir sorgunun araç turları sürebilir,
   // yeni sorguyu sunucu 402 + açıklamayla reddeder (describeError).
   if (!st.serverKey && !st.sharedKey) {
-    throw new AiError("Anthropic API anahtarı girilmemiş. Ayarlar > Yapay Zekâ bölümünden ekleyin.");
+    throw new AiError("Yapay zekâ henüz etkin değil; site yöneticisi ortak anahtarı tanımlayınca açılır.");
   }
   const code = getAccessCode();
   const sig = `proxy:${code}`;
@@ -205,7 +205,7 @@ export function extractJson<T = unknown>(text: string): T {
 }
 
 export function quotaMessage(limit: number): string {
-  return `Ücretsiz ${limit} yapay zekâ soru hakkınız doldu. Devam etmek için Ayarlar > Yapay Zekâ bölümünden kendi Anthropic API anahtarınızı ekleyin.`;
+  return `Ücretsiz ${limit} yapay zekâ soru hakkınızın tamamını kullandınız. Daha fazla kullanım için site yöneticisiyle iletişime geçin.`;
 }
 
 export function describeError(e: unknown): string {
@@ -214,13 +214,13 @@ export function describeError(e: unknown): string {
     const msg = (e.error as { error?: { message?: string } } | undefined)?.error?.message;
     return msg || quotaMessage(4);
   }
-  if (e instanceof Anthropic.AuthenticationError) return "API anahtarı geçersiz. Ayarlardan kontrol edin.";
+  if (e instanceof Anthropic.AuthenticationError) return "Yapay zekâ anahtarı geçersiz; site yöneticisi Ayarlar > Yapay Zekâ bölümünden kontrol etmeli.";
   if (e instanceof Anthropic.PermissionDeniedError) return e.message?.includes("Oturum") ? "Oturum süresi doldu; sayfayı yenileyip tekrar giriş yapın." : "Erişim reddedildi. API anahtarı yetkilerini kontrol edin.";
   if (e instanceof Anthropic.RateLimitError) return "İstek sınırı aşıldı, biraz sonra tekrar deneyin.";
   if (e instanceof Anthropic.APIConnectionTimeoutError) return "İstek zaman aşımına uğradı. Kaldığı yerden devam edebilirsiniz.";
   if (e instanceof Anthropic.APIConnectionError) return "Bağlantı kurulamadı. İnternet bağlantınızı kontrol edin.";
   if (e instanceof Anthropic.APIError) {
-    if (e.status === 503) return "Sunucuda API anahtarı tanımlı değil. Ayarlar > Yapay Zekâ bölümünden ekleyin.";
+    if (e.status === 503) return "Yapay zekâ henüz etkin değil; site yöneticisi ortak anahtarı tanımlayınca açılır.";
     if (e.status === 529 || e.status === 500) return "Yapay zekâ servisi şu an yoğun, biraz sonra tekrar deneyin.";
     return `API hatası ${e.status ?? ""}: ${e.message}`;
   }
@@ -239,10 +239,12 @@ export async function callJson<T>(opts: {
   maxTokens?: number;
   effort?: Effort;
   signal?: AbortSignal;
+  /** Birden çok çağrıdan oluşan tek işlem (ör. bir risk analizinin tamamı) aynı kimliği geçirir → tek hak sayılır */
+  queryId?: string;
 }): Promise<T> {
   const c = await client();
   const model = currentModel();
-  const qid = newQueryId();
+  const qid = opts.queryId ?? newQueryId();
   const stream = c.beta.messages.stream(
     {
       model,
