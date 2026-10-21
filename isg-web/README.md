@@ -61,6 +61,12 @@ Varsayılan model **Claude Opus 5.5**; Ayarlar'dan Sonnet 5.5 veya Haiku 5.5 se�
 - **Ücretsiz deneme:** Yönetici, **Ayarlar → Yapay Zekâ → Ortak API anahtarı**'na bir anahtar girer (ya da `api/config.php` → `anthropic_api_key`). Kendi anahtarı olmayan her kullanıcı bu anahtarla **4 soru** sorar (`ucretsiz_ai_sorgu` ile değiştirilebilir). Anahtar bir çalışma alanına bağlı değilse `anthropic_workspace_id` doldurulmalıdır. Asistana sorulan bir soru, araç turlarıyla birlikte tek sorgu sayılır; başarısız istekler sayılmaz. Yönetici sınırsızdır.
 - **Kendi anahtarı:** Kullanıcı **Ayarlar → Yapay Zekâ**'dan anahtarını bir kez girer; sunucuda o kullanıcıya bağlı saklanır, tüm cihazlarında sınırsız geçerli olur.
 
+## Sunucu ayarları (yönetici paneli)
+
+Yönetici, **Ayarlar → Sunucu ayarları** kartından şunları paketi yeniden yüklemeden değiştirir: ortak Claude anahtarı, çalışma alanı kimliği, ücretsiz soru hakkı, kayıt açık/kapalı, davet kodu, e-posta doğrulaması (OTP), gönderen adresi/adı ve SMTP. Değerler veritabanında tutulur ve `api/config.php`'nin üzerine yazılır. "Kod düzenleyici" sekmesi aynı ayarları JSON olarak düzenletir (gizli alanlar hariç). "Anahtarı test et" model listesi ucunu kullanır, soru hakkı harcamaz; "Kendime deneme e-postası gönder" e-posta ayarlarını doğrular. Güvenlik için PHP dosyaları web'den düzenlenemez.
+
+Kullanıcılar kendi API anahtarını girmez; herkes ortak anahtarla çalışır.
+
 ## cPanel'e yükleme
 
 1. `npm install && npm run build && npm run package` → `isgora-site.zip` (dosyalar 644, klasörler 755 izinli).

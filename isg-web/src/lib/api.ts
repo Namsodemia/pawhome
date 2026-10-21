@@ -142,3 +142,36 @@ export function sinifDavetLinki(kod: string): string {
 export const ortakAnahtarDurum = () => call<{ set: boolean; fromConfig: boolean; limit: number }>("ai-ortak-key");
 export const ortakAnahtarKaydet = (key: string) => post<{ ok: true }>("ai-ortak-key", { key });
 export const ortakAnahtarSil = () => call<{ ok: true }>("ai-ortak-key", { method: "DELETE" });
+
+// ---------------------------------------------------------------- sunucu ayarları (yönetici)
+
+/** Panelden değiştirilebilen sunucu ayarları (gizli alanlar hariç) — public/api/_lib.php ISGORA_SITE_FIELDS ile aynı */
+export interface SiteValues {
+  kayit_acik: boolean;
+  kayit_kodu: string;
+  otp_zorunlu: boolean;
+  ucretsiz_ai_sorgu: number;
+  anthropic_workspace_id: string;
+  mail_from: string;
+  mail_from_name: string;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_secure: "ssl" | "tls" | "yok";
+  smtp_user: string;
+}
+
+export interface SiteSettings {
+  values: SiteValues;
+  /** Değer panelden mi (veritabanı) yoksa config.php'den mi geliyor */
+  source: Record<keyof SiteValues | "smtp_pass", "panel" | "config">;
+  secrets: { smtp_pass: boolean; anthropic_api_key: { set: boolean; fromConfig: boolean; last4: string } };
+  mail_from_effective: string;
+}
+
+/** Gizli alanlar: "" → değiştirme, null → sil */
+export type SiteSecrets = { anthropic_api_key?: string | null; smtp_pass?: string | null };
+
+export const siteAyarlari = () => call<SiteSettings>("site-ayarlari");
+export const siteAyarlariKaydet = (values: Partial<SiteValues> & SiteSecrets) => post<SiteSettings>("site-ayarlari", { values });
+export const denemeEpostasi = () => post<{ ok: true; to: string }>("test-eposta", {});
+export const aiAnahtarTest = () => post<{ ok: boolean; message: string }>("ai-test", {});

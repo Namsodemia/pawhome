@@ -12,6 +12,7 @@
  *   GET  ?r=atamalarim      çalışanın OSGB'de kendisine atanmış firmaları
  *   GET|POST ?r=sinif-kod, GET|DELETE ?r=sinif-ogrenciler   sınıf katılım kodu ve katılan öğrenciler (sınıf sahibi)
  *   POST ?r=sinif-katil, GET ?r=siniflarim, POST ?r=sinif-ayril   öğrencinin sınıfları
+ *   GET|POST ?r=site-ayarlari, POST ?r=test-eposta, POST ?r=ai-test   sunucu ayarları (yönetici)
  *   POST /api/anthropic/v1/messages  (.htaccess ile ?r=anthropic) Claude vekili
  *   GET  ?r=ping            arka uç var mı (giriş gerekmez)
  */
@@ -156,6 +157,67 @@ try {
 
         case 'anthropic':
             proxy_anthropic();
+            break;
+
+        // ------------------------------------------------ sunucu ayarları (yönetici) — paketi yeniden yüklemeden değiştirilir
+        case 'site-ayarlari':
+            $u = require_admin();
+            if ($method === 'POST') {
+                require_app_header();
+                $in = read_json();
+                $vals = is_array($in['values'] ?? null) ? $in['values'] : [];
+                // Ortak Claude anahtarı ayrı saklanır (meta: ortak_ai_anahtari); null → sil
+                if (array_key_exists('anthropic_api_key', $vals)) {
+                    $k = $vals['anthropic_api_key'];
+                    unset($vals['anthropic_api_key']);
+                    if ($k === null) {
+                        meta_set('ortak_ai_anahtari', null);
+                    } elseif (trim((string) $k) !== '') {
+                        if (!preg_match('/^sk-ant-[A-Za-z0-9_\-]{20,}$/', trim((string) $k))) {
+                            fail_json(400, 'Claude anahtarı "sk-ant-" ile başlamalı.');
+                        }
+                        meta_set('ortak_ai_anahtari', trim((string) $k));
+                    }
+                }
+                $clean = site_validate($vals);
+                $cur = json_decode((string) meta_get('site_ayarlari', ''), true);
+                $cur = is_array($cur) ? $cur : [];
+                foreach ($clean as $k => $v) {
+                    if ($v === null) {
+                        unset($cur[$k]);
+                    } else {
+                        $cur[$k] = $v;
+                    }
+                }
+                meta_set('site_ayarlari', json_encode((object) $cur, ISGORA_JSON));
+                site_cfg(true);
+            } elseif ($method !== 'GET') {
+                fail_json(405, 'Desteklenmeyen yöntem.');
+            }
+            json_out(site_settings_out());
+            break;
+
+        case 'test-eposta':
+            $u = require_admin();
+            require_app_header();
+            $to = (string) ($u['eposta'] ?: $u['kullanici_adi']);
+            if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+                fail_json(400, 'Yönetici hesabınızda geçerli bir e-posta yok.');
+            }
+            if (!mail_rate_ok($to)) {
+                fail_json(429, 'Çok fazla e-posta gönderildi. Bir saat sonra tekrar deneyin.');
+            }
+            mail_mark($to);
+            $intro = "Bu bir deneme e-postasıdır. Bu e-postayı aldıysanız İsgora doğrulama kodlarını sorunsuz gönderebilir.\n\nGönderen: " . mail_from()
+                . "\nYöntem: " . (trim((string) (site_cfg()['smtp_host'] ?? '')) !== '' ? 'SMTP (' . site_cfg()['smtp_host'] . ')' : 'PHP mail()');
+            $ok = send_mail($to, 'İsgora · deneme e-postası', $intro, mail_html('Deneme e-postası', $intro));
+            $ok ? json_out(['ok' => true, 'to' => $to]) : fail_json(502, 'E-posta gönderilemedi. SMTP ayarlarını kontrol edin ya da cPanel\'de gönderen adresini (' . mail_from() . ') açın.');
+            break;
+
+        case 'ai-test':
+            require_admin();
+            require_app_header();
+            json_out(ai_key_test());
             break;
 
         // ------------------------------------------------ OSGB çalışan hesapları
@@ -385,6 +447,82 @@ function read_json(): array
         fail_json(400, 'Geçersiz veri.');
     }
     return $in;
+}
+
+function require_admin(): array
+{
+    $u = require_user();
+    if ((int) $u['yonetici'] !== 1) {
+        fail_json(403, 'Bu ayarları yalnızca site yöneticisi değiştirebilir.');
+    }
+    return $u;
+}
+
+/** Sunucu ayarları: gizli alanlar geri gönderilmez, yalnızca tanımlı olup olmadıkları */
+function site_settings_out(): array
+{
+    $c = site_cfg();
+    $db = json_decode((string) meta_get('site_ayarlari', ''), true);
+    $db = is_array($db) ? $db : [];
+    $values = [];
+    $source = [];
+    foreach (ISGORA_SITE_FIELDS as $k => $spec) {
+        $source[$k] = array_key_exists($k, $db) ? 'panel' : 'config';
+        if (strpos($spec, 'secret') === 0) {
+            continue;
+        }
+        $def = ['kayit_acik' => true, 'otp_zorunlu' => true, 'ucretsiz_ai_sorgu' => 4, 'smtp_port' => 465, 'smtp_secure' => 'ssl', 'mail_from_name' => 'İsgora'][$k] ?? '';
+        $v = $c[$k] ?? $def;
+        $values[$k] = strpos($spec, 'bool') === 0 ? (bool) $v : (strpos($spec, 'int') === 0 ? (int) $v : (string) $v);
+    }
+    $panelKey = trim((string) meta_get('ortak_ai_anahtari', ''));
+    $shared = shared_ai_key();
+    return [
+        'values' => $values,
+        'source' => $source,
+        'secrets' => [
+            'smtp_pass' => trim((string) ($c['smtp_pass'] ?? '')) !== '',
+            'anthropic_api_key' => [
+                'set' => $shared !== '',
+                'fromConfig' => $panelKey === '' && $shared !== '',
+                'last4' => $shared !== '' ? substr($shared, -4) : '',
+            ],
+        ],
+        'mail_from_effective' => mail_from(),
+    ];
+}
+
+/** Ortak anahtarı ücretsiz bir uçla dener (model listesi; sorgu hakkı harcamaz) */
+function ai_key_test(): array
+{
+    $key = shared_ai_key();
+    if ($key === '') {
+        return ['ok' => false, 'message' => 'Ortak anahtar tanımlı değil.'];
+    }
+    if (!function_exists('curl_init')) {
+        return ['ok' => false, 'message' => 'Sunucuda PHP cURL eklentisi yok.'];
+    }
+    $h = ['x-api-key: ' . $key, 'anthropic-version: 2023-06-01'];
+    $ws = trim((string) (site_cfg()['anthropic_workspace_id'] ?? ''));
+    if ($ws !== '') {
+        $h[] = 'anthropic-workspace-id: ' . $ws;
+    }
+    $ch = curl_init('https://api.anthropic.com/v1/models?limit=1');
+    curl_setopt_array($ch, [CURLOPT_HTTPHEADER => $h, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 30]);
+    $body = curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    if ($body === false) {
+        return ['ok' => false, 'message' => "Anthropic'e bağlanılamadı: " . curl_error($ch)];
+    }
+    $j = json_decode((string) $body, true);
+    if ($code === 200) {
+        return ['ok' => true, 'message' => 'Anahtar çalışıyor.' . ($ws !== '' ? ' (çalışma alanı: ' . $ws . ')' : '')];
+    }
+    $msg = (string) ($j['error']['message'] ?? "HTTP $code");
+    if (stripos($msg, 'workspace') !== false) {
+        $msg .= ' → Aşağıya Anthropic Console > Settings > Workspaces bölümündeki çalışma alanı kimliğini (wrkspc_…) yazın ya da bir çalışma alanına bağlı yeni anahtar oluşturun.';
+    }
+    return ['ok' => false, 'message' => $msg];
 }
 
 function require_osgb(): array
@@ -620,7 +758,7 @@ function proxy_anthropic(): void
         $headers[] = 'anthropic-beta: ' . $_SERVER['HTTP_ANTHROPIC_BETA'];
     }
     // Ortak anahtar bir çalışma alanına bağlı değilse Anthropic bu başlığı ister (config.php: anthropic_workspace_id)
-    $ws = trim((string) (cfg()['anthropic_workspace_id'] ?? ''));
+    $ws = trim((string) (site_cfg()['anthropic_workspace_id'] ?? ''));
     if ($ws !== '' && $key === shared_ai_key() && preg_match('/^[A-Za-z0-9_\-]{4,80}$/', $ws)) {
         $headers[] = 'anthropic-workspace-id: ' . $ws;
     }

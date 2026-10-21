@@ -144,7 +144,7 @@ if (isset($_GET['cikis'])) {
     go('/giris.php');
 }
 
-$cfg = cfg();
+$cfg = site_cfg();
 $firstRun = user_count() === 0;
 $registerOpen = $firstRun || !empty($cfg['kayit_acik']);
 $pending = pending_get();

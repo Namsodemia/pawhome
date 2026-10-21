@@ -76,6 +76,115 @@ function cfg(): array
     return $c;
 }
 
+/**
+ * Yöneticinin Ayarlar > Sunucu ayarları'ndan girdiği değerler (veritabanında) config.php'nin üzerine yazılır.
+ * Böylece anahtar, e-posta, kayıt gibi ayarlar için paketi yeniden yüklemek gerekmez.
+ * Tür: bool | int:min:max | str:uzunluk | email | secret:uzunluk | enum:a,b | re:desen
+ */
+const ISGORA_SITE_FIELDS = [
+    'kayit_acik' => 'bool',
+    'kayit_kodu' => 'str:64',
+    'otp_zorunlu' => 'bool',
+    'ucretsiz_ai_sorgu' => 'int:0:1000',
+    'anthropic_workspace_id' => 're:/^[A-Za-z0-9_\-]{0,80}$/',
+    'mail_from' => 'email',
+    'mail_from_name' => 'str:60',
+    'smtp_host' => 're:/^[A-Za-z0-9.\-]{0,120}$/',
+    'smtp_port' => 'int:1:65535',
+    'smtp_secure' => 'enum:ssl,tls,yok',
+    'smtp_user' => 'str:120',
+    'smtp_pass' => 'secret:200',
+];
+
+function site_cfg(bool $reload = false): array
+{
+    static $c = null;
+    if ($c === null || $reload) {
+        $o = json_decode((string) meta_get('site_ayarlari', ''), true);
+        $c = array_merge(cfg(), is_array($o) ? array_intersect_key($o, ISGORA_SITE_FIELDS) : []);
+    }
+    return $c;
+}
+
+/** Gelen ayarları beyaz listeye göre doğrular; hatada 400 döner. Gizli alan null → sil, '' → değiştirme. */
+function site_validate(array $in): array
+{
+    $labels = [
+        'kayit_kodu' => 'Davet kodu', 'ucretsiz_ai_sorgu' => 'Ücretsiz soru sayısı', 'anthropic_workspace_id' => 'Çalışma alanı kimliği',
+        'mail_from' => 'Gönderen adresi', 'mail_from_name' => 'Gönderen adı', 'smtp_host' => 'SMTP sunucusu', 'smtp_port' => 'SMTP portu',
+        'smtp_secure' => 'SMTP güvenliği', 'smtp_user' => 'SMTP kullanıcı adı', 'smtp_pass' => 'SMTP şifresi',
+    ];
+    $out = [];
+    foreach ($in as $k => $v) {
+        if (!isset(ISGORA_SITE_FIELDS[$k])) {
+            fail_json(400, "Bilinmeyen ayar: $k");
+        }
+        $spec = explode(':', ISGORA_SITE_FIELDS[$k], 2);
+        $name = $labels[$k] ?? $k;
+        switch ($spec[0]) {
+            case 'bool':
+                if (!is_bool($v)) {
+                    fail_json(400, "$k true ya da false olmalı.");
+                }
+                $out[$k] = $v;
+                break;
+            case 'int':
+                [$min, $max] = array_map('intval', explode(':', $spec[1]));
+                if (!is_int($v) && !(is_string($v) && preg_match('/^\d+$/', $v))) {
+                    fail_json(400, "$name bir sayı olmalı.");
+                }
+                $v = (int) $v;
+                if ($v < $min || $v > $max) {
+                    fail_json(400, "$name $min ile $max arasında olmalı.");
+                }
+                $out[$k] = $v;
+                break;
+            case 'secret':
+                if ($v === null) {
+                    $out[$k] = null;
+                    break;
+                }
+                $v = (string) $v;
+                if ($v === '') {
+                    break;
+                }
+                if (strlen($v) > (int) $spec[1]) {
+                    fail_json(400, "$name çok uzun.");
+                }
+                $out[$k] = $v;
+                break;
+            case 'email':
+                $v = trim((string) $v);
+                if ($v !== '' && !filter_var($v, FILTER_VALIDATE_EMAIL)) {
+                    fail_json(400, "$name geçerli bir e-posta adresi olmalı.");
+                }
+                $out[$k] = $v;
+                break;
+            case 'enum':
+                $v = (string) $v;
+                if (!in_array($v, explode(',', $spec[1]), true)) {
+                    fail_json(400, "$name şunlardan biri olmalı: " . $spec[1]);
+                }
+                $out[$k] = $v;
+                break;
+            case 're':
+                $v = trim((string) $v);
+                if (!preg_match($spec[1], $v)) {
+                    fail_json(400, "$name geçersiz karakter içeriyor.");
+                }
+                $out[$k] = $v;
+                break;
+            default: // str
+                $v = trim(str_replace(["\r", "\n"], ' ', (string) $v));
+                if (strlen_u($v) > (int) $spec[1]) {
+                    fail_json(400, "$name en fazla {$spec[1]} karakter olabilir.");
+                }
+                $out[$k] = $v;
+        }
+    }
+    return $out;
+}
+
 function db(): PDO
 {
     static $pdo = null;
@@ -565,7 +674,7 @@ function shared_ai_key(): string
 
 function ai_free_limit(): int
 {
-    return max(0, (int) (cfg()['ucretsiz_ai_sorgu'] ?? 4));
+    return max(0, (int) (site_cfg()['ucretsiz_ai_sorgu'] ?? 4));
 }
 
 function ai_used(int $uid): int
@@ -620,7 +729,7 @@ function site_url(string $path = '/'): string
 
 function mail_from(): string
 {
-    $f = trim((string) (cfg()['mail_from'] ?? ''));
+    $f = trim((string) (site_cfg()['mail_from'] ?? ''));
     if ($f !== '' && filter_var($f, FILTER_VALIDATE_EMAIL)) {
         return $f;
     }
@@ -641,7 +750,7 @@ function mime_header(string $s): string
 function send_mail(string $to, string $subject, string $text, string $html): bool
 {
     $from = mail_from();
-    $fromName = (string) (cfg()['mail_from_name'] ?? 'İsgora');
+    $fromName = (string) (site_cfg()['mail_from_name'] ?? 'İsgora');
     $boundary = 'isg_' . bin2hex(random_bytes(12));
     $headers = [
         'From: ' . mime_header($fromName) . ' <' . $from . '>',
@@ -655,7 +764,7 @@ function send_mail(string $to, string $subject, string $text, string $html): boo
         . "--$boundary\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
         . chunk_split(base64_encode($html))
         . "--$boundary--\r\n";
-    $c = cfg();
+    $c = site_cfg();
     if (trim((string) ($c['smtp_host'] ?? '')) !== '') {
         try {
             return smtp_send($to, $from, mime_header($subject), implode("\r\n", $headers), $body);
@@ -676,10 +785,13 @@ function send_mail(string $to, string $subject, string $text, string $html): boo
 
 function smtp_send(string $to, string $from, string $subject, string $headers, string $body): bool
 {
-    $c = cfg();
+    $c = site_cfg();
     $host = (string) $c['smtp_host'];
     $port = (int) ($c['smtp_port'] ?? 465);
     $secure = strtolower((string) ($c['smtp_secure'] ?? ($port === 465 ? 'ssl' : 'tls')));
+    if ($secure === 'yok') {
+        $secure = '';
+    }
     $fp = @stream_socket_client(($secure === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $port, $errno, $errstr, 15);
     if (!$fp) {
         throw new RuntimeException("bağlantı kurulamadı: $errstr");
@@ -856,7 +968,7 @@ function otp_check(int $uid, string $amac, string $kod): string
 
 function otp_required(): bool
 {
-    return (bool) (cfg()['otp_zorunlu'] ?? true);
+    return (bool) (site_cfg()['otp_zorunlu'] ?? true);
 }
 
 // ---------------------------------------------------------------- sınıf katılımı

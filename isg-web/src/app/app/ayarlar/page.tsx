@@ -19,7 +19,6 @@ import {
   Tags,
   Trash2,
   Upload,
-  Users,
   Wallet,
   X,
   type LucideIcon,
@@ -27,7 +26,7 @@ import {
 import { Badge, Button, Chips, Field, Input, PageHeader, Segment, Textarea } from "@/components/ui";
 import { FieldGroup } from "@/components/FieldGroup";
 import { AiQuotaBadge, AiQuotaWarning, useAiQuota } from "@/components/AiQuota";
-import { ortakAnahtarDurum, ortakAnahtarKaydet, ortakAnahtarSil } from "@/lib/api";
+import { SunucuAyarlari } from "./SunucuAyarlari";
 import { confirmDialog, toast } from "@/components/feedback";
 import { kasaBalances, useStore, type Data } from "@/lib/store";
 import { cx, money, norm, nowIso, today } from "@/lib/format";
@@ -101,6 +100,7 @@ export default function AyarlarPage() {
   const firma = useStore((s) => s.settings.firma);
   const rol = useRol();
   const backend = useSync((s) => s.backend);
+  const yonetici = useSync((s) => s.yonetici);
   return (
     <div>
       <PageHeader title="Ayarlar" subtitle="Profil, yapay zekâ, firma ve yedekleme" actions={<LogoutButton />} />
@@ -108,6 +108,7 @@ export default function AyarlarPage() {
         <div className="space-y-5">
           {backend ? <ProfileCard /> : null}
           <AiCard />
+          {backend && yonetici ? <SunucuAyarlari /> : null}
         </div>
         <div className="space-y-5">
           <FirmaCard key={firma} />
@@ -443,139 +444,12 @@ function AiCard() {
         </Button>
       ) : null}
 
-      {backend && yonetici ? <OrtakAnahtar /> : null}
-    </SettingsCard>
-  );
-}
-
-/** Yönetici: kendi anahtarı olmayan kullanıcıların ücretsiz sorgularında kullanılan ortak anahtar */
-function OrtakAnahtar() {
-  const [st, setSt] = useState<{ set: boolean; fromConfig: boolean; limit: number } | null>(null);
-  const [loadErr, setLoadErr] = useState<string | null>(null);
-  const [input, setInput] = useState("");
-  const [inputErr, setInputErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    let alive = true;
-    ortakAnahtarDurum()
-      .then((s) => {
-        if (!alive) return;
-        setSt(s);
-        setLoadErr(null);
-      })
-      .catch((e: unknown) => {
-        if (alive) setLoadErr(e instanceof Error ? e.message : "Durum okunamadı.");
-      });
-    return () => {
-      alive = false;
-    };
-  }, [tick]);
-
-  const reload = () => setTick((t) => t + 1);
-  const limit = st?.limit ?? 5;
-
-  async function save(e?: FormEvent) {
-    e?.preventDefault();
-    const k = input.trim();
-    if (!k) {
-      setInputErr("Anahtarı yapıştırın.");
-      return;
-    }
-    if (!k.startsWith("sk-ant-")) {
-      setInputErr("Anthropic API anahtarı “sk-ant-” ile başlamalı.");
-      return;
-    }
-    setBusy(true);
-    try {
-      await ortakAnahtarKaydet(k);
-      setInput("");
-      resetServerStatus();
-      reload();
-      toast("Ortak anahtar kaydedildi; ücretsiz sorgular bu anahtarla yapılır.");
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Kaydedilemedi.", "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function remove() {
-    const ok = await confirmDialog({
-      title: "Ortak anahtarı kaldır",
-      text: "Kullanıcılar yapay zekâyı kullanamaz (config.php'de bir anahtar tanımlıysa o kullanılmaya devam eder).",
-      okLabel: "Kaldır",
-      danger: true,
-    });
-    if (!ok) return;
-    setBusy(true);
-    try {
-      await ortakAnahtarSil();
-      resetServerStatus();
-      reload();
-      toast("Ortak anahtar kaldırıldı.");
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Kaldırılamadı.", "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="mt-5 border-t border-line pt-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Users size={17} className="shrink-0 text-brand-blue" />
-        <h3 className="min-w-0 text-[14.5px] font-extrabold text-navy">Ortak API anahtarı (ücretsiz sorgular)</h3>
-        <Badge tone="navy">Yönetici</Badge>
-      </div>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
-        Tüm kullanıcılar yapay zekâyı bu anahtarla kullanır: her hesaba <span className="num font-bold text-navy">{limit}</span> ücretsiz soru hakkı tanınır; yönetici sınırsız kullanır.
-      </p>
-
-      {loadErr ? (
-        <div className="mt-3 rounded-2xl bg-soft-danger px-3.5 py-2.5 text-[12.5px] font-semibold text-danger">{loadErr}</div>
-      ) : !st ? (
-        <div className="skeleton mt-3 h-11 w-full rounded-2xl" />
-      ) : st.set && st.fromConfig ? (
-        <div className="mt-3 flex items-start gap-2 rounded-2xl bg-soft-blue px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-brand-blue">
-          <CircleCheck size={16} className="mt-0.5 shrink-0" />
-          <span className="min-w-0">
-            Ortak anahtar sunucudaki <span className="font-mono">config.php</span> dosyasından geliyor; değiştirmek ya da kaldırmak için oradaki
-            ayarı düzenleyin. Aşağıdan girdiğiniz anahtar config.php&apos;dekinin yerine geçer.
-          </span>
+      {backend && yonetici ? (
+        <div className="mt-4 rounded-2xl bg-soft-blue px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-brand-blue">
+          Claude anahtarı, çalışma alanı kimliği ve ücretsiz soru hakkı: aşağıdaki <b>Sunucu ayarları</b> kartından.
         </div>
-      ) : st.set ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl bg-soft-green px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-success">
-          <CircleCheck size={16} className="shrink-0" />
-          <span className="min-w-0 flex-1">Ortak anahtar tanımlı — ücretsiz sorgular açık.</span>
-          <Button kind="danger" small icon={Trash2} onClick={remove} disabled={busy}>
-            Kaldır
-          </Button>
-        </div>
-      ) : (
-        <div className="mt-3 rounded-2xl border border-[#F3DFA9] bg-soft-warn px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-warn">
-          Ortak anahtar tanımlı değil — kullanıcılar yapay zekâyı kullanamaz.
-        </div>
-      )}
-
-      {!loadErr ? (
-        <form onSubmit={save} className="mt-3 space-y-2.5">
-          <Field label={st?.set ? "Yeni ortak anahtar" : "Ortak anahtar"} error={inputErr}>
-            <SecretInput
-              value={input}
-              onChange={(v) => {
-                setInput(v);
-                setInputErr(null);
-              }}
-            />
-          </Field>
-          <Button type="submit" kind="secondary" icon={KeyRound} disabled={!input.trim()} loading={busy}>
-            Ortak anahtarı kaydet
-          </Button>
-        </form>
       ) : null}
-    </div>
+    </SettingsCard>
   );
 }
 
