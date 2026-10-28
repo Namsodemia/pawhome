@@ -265,7 +265,13 @@ try {
             require_app_header();
             $in = read_json();
             $t = admin_target($me, (int) ($in['id'] ?? 0));
-            db()->prepare('UPDATE kullanicilar SET aktif = ? WHERE id = ?')->execute([!empty($in['aktif']) ? 1 : 0, (int) $t['id']]);
+            if (array_key_exists('aktif', $in)) {
+                db()->prepare('UPDATE kullanicilar SET aktif = ? WHERE id = ?')->execute([!empty($in['aktif']) ? 1 : 0, (int) $t['id']]);
+            }
+            if (!empty($in['dogrula'])) {
+                // E-postası gelmeyen kullanıcıyı yönetici elle doğrular
+                db()->prepare('UPDATE kullanicilar SET dogrulandi = 1 WHERE id = ?')->execute([(int) $t['id']]);
+            }
             json_out(['ok' => true, 'kullanici' => users_admin_list((int) $t['id'])[0] ?? null]);
             break;
 

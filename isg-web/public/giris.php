@@ -199,6 +199,11 @@ if (in_array($mode, ['giris', 'kodla'], true) && $_SERVER['REQUEST_METHOD'] === 
 if ($mode === 'kayit' && !$firstRun && $_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['sinif']) && current_user()) {
     go('/app/sinifim/?kod=' . rawurlencode(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $_GET['sinif']) ?? '')));
 }
+// Kod beklerken yönetici e-posta doğrulamasını kapattıysa: kayıt kodu artık gerekmez
+if ($mode === 'dogrula' && $pending['amac'] === 'kayit' && !otp_required()) {
+    db()->prepare('UPDATE kullanicilar SET dogrulandi = 1 WHERE id = ?')->execute([(int) $pending['user']['id']]);
+    login_and_go(user_by_id((int) $pending['user']['id']), '/app/?hosgeldin=1');
+}
 if ($mode === 'dogrula' && isset($_GET['durum'])) {
     $error = otp_error((string) $_GET['durum']);
 }
@@ -218,6 +223,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 if ((int) $u['aktif'] !== 1) {
                     $error = 'Bu hesap kapatılmış. OSGB yetkilinizle görüşün.';
+                } elseif ((int) $u['dogrulandi'] !== 1 && !otp_required()) {
+                    // E-posta doğrulaması kapatıldı: kod beklemeden giriş (hesap doğrulanmış sayılır)
+                    db()->prepare('UPDATE kullanicilar SET dogrulandi = 1 WHERE id = ?')->execute([(int) $u['id']]);
+                    login_and_go($u, $u['son_giris'] === null ? '/app/?hosgeldin=1' : safe_next());
                 } elseif ((int) $u['dogrulandi'] !== 1) {
                     // Kayıt olup e-postasını doğrulamamış: yeni kod gönder
                     login_ok();

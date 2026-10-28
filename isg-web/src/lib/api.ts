@@ -207,3 +207,5 @@ export type HakIslem = { islem: "ekle" | "belirle"; deger: number } | { islem: "
 export const kullanicilar = () => call<{ varsayilan: number; kullanicilar: YonetimKullanici[] }>("kullanicilar");
 export const kullaniciHak = (id: number, h: HakIslem) => post<{ ok: true; kullanici: YonetimKullanici }>("kullanici-hak", { id, ...h }).then((j) => j.kullanici);
 export const kullaniciDurum = (id: number, aktif: boolean) => post<{ ok: true; kullanici: YonetimKullanici }>("kullanici-durum", { id, aktif }).then((j) => j.kullanici);
+/** E-posta kodu gelmeyen kullanıcıyı elle doğrula */
+export const kullaniciDogrula = (id: number) => post<{ ok: true; kullanici: YonetimKullanici }>("kullanici-durum", { id, dogrula: true }).then((j) => j.kullanici);

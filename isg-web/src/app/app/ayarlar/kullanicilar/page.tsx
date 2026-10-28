@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Infinity as InfinityIcon, Lock, RotateCcw, Search, SearchX, Sparkles, Undo2, Unlock, Users, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Infinity as InfinityIcon, Lock, MailCheck, RotateCcw, Search, SearchX, Sparkles, Undo2, Unlock, Users, X } from "lucide-react";
 import { Avatar, Badge, Button, Chips, Empty, Field, Input, Loading, PageHeader, ProgressBar, Sheet, Stat } from "@/components/ui";
 import { confirmDialog, toast } from "@/components/feedback";
 import { cx, norm } from "@/lib/format";
 import { useSync } from "@/lib/sync";
 import { ROLLER, rolBilgi } from "@/lib/roles";
-import { kullaniciDurum, kullaniciHak, kullanicilar, type HakIslem, type YonetimKullanici } from "@/lib/api";
+import { kullaniciDogrula, kullaniciDurum, kullaniciHak, kullanicilar, type HakIslem, type YonetimKullanici } from "@/lib/api";
 
 /** Yönetici: kullanıcılar ve yapay zekâ soru hakları. Hak ekle / belirle / sınırsız yap / sıfırla, hesabı kapat-aç. */
 export default function KullanicilarPage() {
@@ -201,6 +201,18 @@ function Detay({ u, varsayilan, onClose, onChange }: { u: YonetimKullanici; vars
     }
   }
 
+  async function dogrula() {
+    setBusy("dogrula");
+    try {
+      onChange(await kullaniciDogrula(u.id));
+      toast("Hesap doğrulandı; kişi şifresiyle giriş yapabilir.");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function durum() {
     if (u.aktif) {
       const ok = await confirmDialog({ title: "Hesabı kapat", text: `${u.ad_soyad || u.eposta} giriş yapamaz; verileri silinmez. Sonra yeniden açabilirsiniz.`, okLabel: "Kapat", danger: true });
@@ -302,11 +314,19 @@ function Detay({ u, varsayilan, onClose, onChange }: { u: YonetimKullanici; vars
           </div>
         </div>
 
-        <div className="border-t border-line pt-4">
+        <div className="flex flex-wrap gap-2 border-t border-line pt-4">
+          {!u.dogrulandi ? (
+            <Button kind="secondary" small icon={MailCheck} onClick={() => void dogrula()} loading={busy === "dogrula"} disabled={!!busy}>
+              E-postayı onayla
+            </Button>
+          ) : null}
           <Button kind={u.aktif ? "danger" : "secondary"} small icon={u.aktif ? Lock : Unlock} onClick={() => void durum()} loading={busy === "durum"} disabled={!!busy}>
             {u.aktif ? "Hesabı kapat" : "Hesabı aç"}
           </Button>
         </div>
+        {!u.dogrulandi ? (
+          <p className="-mt-2 text-[12px] leading-relaxed text-muted">Doğrulama kodu e-postası ulaşmadıysa hesabı buradan onaylayın; kişi şifresiyle giriş yapabilir.</p>
+        ) : null}
       </div>
     </Sheet>
   );
