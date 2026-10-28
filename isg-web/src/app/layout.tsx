@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   applicationName: "İsgora",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "İsgora", statusBarStyle: "default" },
+  // Google Search Console doğrulaması (aynı kod DNS'e TXT kaydı olarak da eklenebilir)
+  verification: { google: "xlT6S_LIiMNp2VhIu3GpfIDLTNbNx72No8NW4OcjHys" },
 };
 
 export const viewport: Viewport = {
