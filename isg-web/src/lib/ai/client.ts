@@ -222,6 +222,9 @@ export function describeError(e: unknown): string {
   if (e instanceof Anthropic.APIError) {
     if (e.status === 503) return "Yapay zekâ henüz etkin değil; site yöneticisi ortak anahtarı tanımlayınca açılır.";
     if (e.status === 529 || e.status === 500) return "Yapay zekâ servisi şu an yoğun, biraz sonra tekrar deneyin.";
+    if (/workspace/i.test(e.message || "")) {
+      return "Yapay zekâ anahtarı bir çalışma alanına (workspace) bağlı değil. Site yöneticisi Ayarlar › Sunucu ayarları'ndan çalışma alanı kimliğini girmeli ya da çalışma alanına bağlı yeni bir anahtar tanımlamalı.";
+    }
     return `API hatası ${e.status ?? ""}: ${e.message}`;
   }
   if (e instanceof Error) return e.message;
