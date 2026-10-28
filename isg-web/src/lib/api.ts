@@ -175,3 +175,35 @@ export const siteAyarlari = () => call<SiteSettings>("site-ayarlari");
 export const siteAyarlariKaydet = (values: Partial<SiteValues> & SiteSecrets) => post<SiteSettings>("site-ayarlari", { values });
 export const denemeEpostasi = () => post<{ ok: true; to: string }>("test-eposta", {});
 export const aiAnahtarTest = () => post<{ ok: boolean; message: string }>("ai-test", {});
+
+// ---------------------------------------------------------------- kullanıcılar ve yapay zekâ hakları (yönetici)
+
+export interface YonetimKullanici {
+  id: number;
+  ad_soyad: string;
+  eposta: string;
+  telefon: string;
+  kurum: string;
+  rol: "osgb" | "uzman" | "hekim" | "dsp" | "ogrenci";
+  yonetici: boolean;
+  osgb: { id: number; ad: string } | null;
+  aktif: boolean;
+  dogrulandi: boolean;
+  olusturma: string;
+  son_giris: string | null;
+  ai: {
+    used: number;
+    limit: number;
+    unlimited: boolean;
+    /** Yöneticinin tanıdığı özel hak: "sinirsiz" | "limit" (kişiye özel sayı) | null (varsayılan) */
+    ozel: "sinirsiz" | "limit" | null;
+    /** Ortak anahtar tanımlı mı */
+    aktif: boolean;
+  };
+}
+
+export type HakIslem = { islem: "ekle" | "belirle"; deger: number } | { islem: "sinirsiz"; deger: boolean } | { islem: "varsayilan" | "sifirla" };
+
+export const kullanicilar = () => call<{ varsayilan: number; kullanicilar: YonetimKullanici[] }>("kullanicilar");
+export const kullaniciHak = (id: number, h: HakIslem) => post<{ ok: true; kullanici: YonetimKullanici }>("kullanici-hak", { id, ...h }).then((j) => j.kullanici);
+export const kullaniciDurum = (id: number, aktif: boolean) => post<{ ok: true; kullanici: YonetimKullanici }>("kullanici-durum", { id, aktif }).then((j) => j.kullanici);

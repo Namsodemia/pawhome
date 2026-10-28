@@ -685,16 +685,28 @@ function ai_used(int $uid): int
 }
 
 /**
+ * Yöneticinin kullanıcıya tanıdığı hak (Ayarlar > Kullanıcılar ve haklar):
+ *  ai_sinirsiz = '1' → sınırsız;  ai_limit = N → bu kullanıcının toplam soru hakkı (varsayılanın yerine)
+ */
+function user_ai_override(int $uid): array
+{
+    $lim = umeta_get($uid, 'ai_limit');
+    return ['unlimited' => umeta_get($uid, 'ai_sinirsiz') === '1', 'limit' => $lim === null ? null : max(0, (int) $lim)];
+}
+
+/**
  * Kullanıcının yapay zekâ erişimi (kullanıcılar kendi anahtarını girmez):
  *  1) yönetici → ortak anahtar (ya da kendi kaydettiği anahtar), sınırsız
- *  2) yöneticinin OSGB'sine bağlı çalışan hesabı → ortak anahtar, sınırsız
- *  3) diğer herkes → ortak anahtar, ücretsiz soru hakkı kadar (varsayılan 4)
+ *  2) yöneticinin tanıdığı özel hak: sınırsız ya da kişiye özel soru sayısı
+ *  3) yöneticinin OSGB'sine bağlı çalışan hesabı (özel hak yoksa) → sınırsız
+ *  4) diğer herkes → ücretsiz soru hakkı kadar (varsayılan 4)
  */
 function ai_access(array $u): array
 {
     $uid = (int) $u['id'];
     $shared = shared_ai_key();
-    $limit = ai_free_limit();
+    $ov = user_ai_override($uid);
+    $limit = $ov['limit'] ?? ai_free_limit();
     $used = ai_used($uid);
     $base = ['own' => false, 'shared' => $shared !== '', 'limit' => $limit, 'used' => $used, 'left' => max(0, $limit - $used), 'unlimited' => false, 'metered' => false];
     if ((int) $u['yonetici'] === 1) {
@@ -704,7 +716,10 @@ function ai_access(array $u): array
     if ($shared === '') {
         return $base + ['key' => ''];
     }
-    if (!empty($u['osgb_id'])) {
+    if ($ov['unlimited']) {
+        return ['unlimited' => true] + $base + ['key' => $shared];
+    }
+    if ($ov['limit'] === null && !empty($u['osgb_id'])) {
         $org = user_by_id((int) $u['osgb_id']);
         if ($org && (int) $org['yonetici'] === 1) {
             return ['unlimited' => true] + $base + ['key' => $shared];

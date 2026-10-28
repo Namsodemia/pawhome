@@ -67,6 +67,8 @@ Yönetici, **Ayarlar → Sunucu ayarları** kartından şunları paketi yeniden 
 
 Kullanıcılar kendi API anahtarını girmez; herkes ortak anahtarla çalışır.
 
+**Kullanıcılar ve haklar** (`/app/ayarlar/kullanicilar/`, yalnızca yönetici): tüm hesaplar, kullandıkları soru sayısı; kişiye +1/+5/+10/+50 hak ekleme, toplam hakkı belirleme, sınırsız yapma, kullanımı sıfırlama, varsayılana dönme ve hesabı kapatıp açma. Kişiye özel hak, yöneticinin OSGB çalışanlarına tanınan varsayılan sınırsızlığın da önüne geçer.
+
 ## cPanel'e yükleme
 
 1. `npm install && npm run build && npm run package` → `isgora-site.zip` (dosyalar 644, klasörler 755 izinli).

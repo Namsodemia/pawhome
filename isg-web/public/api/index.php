@@ -13,6 +13,7 @@
  *   GET|POST ?r=sinif-kod, GET|DELETE ?r=sinif-ogrenciler   sınıf katılım kodu ve katılan öğrenciler (sınıf sahibi)
  *   POST ?r=sinif-katil, GET ?r=siniflarim, POST ?r=sinif-ayril   öğrencinin sınıfları
  *   GET|POST ?r=site-ayarlari, POST ?r=test-eposta, POST ?r=ai-test   sunucu ayarları (yönetici)
+ *   GET ?r=kullanicilar, POST ?r=kullanici-hak, POST ?r=kullanici-durum   kullanıcılar ve yapay zekâ hakları (yönetici)
  *   POST /api/anthropic/v1/messages  (.htaccess ile ?r=anthropic) Claude vekili
  *   GET  ?r=ping            arka uç var mı (giriş gerekmez)
  */
@@ -212,6 +213,60 @@ try {
                 . "\nYöntem: " . (trim((string) (site_cfg()['smtp_host'] ?? '')) !== '' ? 'SMTP (' . site_cfg()['smtp_host'] . ')' : 'PHP mail()');
             $ok = send_mail($to, 'İsgora · deneme e-postası', $intro, mail_html('Deneme e-postası', $intro));
             $ok ? json_out(['ok' => true, 'to' => $to]) : fail_json(502, 'E-posta gönderilemedi. SMTP ayarlarını kontrol edin ya da cPanel\'de gönderen adresini (' . mail_from() . ') açın.');
+            break;
+
+        // ------------------------------------------------ kullanıcılar ve yapay zekâ hakları (yönetici)
+        case 'kullanicilar':
+            require_admin();
+            json_out(['varsayilan' => ai_free_limit(), 'kullanicilar' => users_admin_list()]);
+            break;
+
+        case 'kullanici-hak':
+            $me = require_admin();
+            require_app_header();
+            $in = read_json();
+            $t = admin_target($me, (int) ($in['id'] ?? 0));
+            $tid = (int) $t['id'];
+            $n = isset($in['deger']) && is_numeric($in['deger']) ? (int) $in['deger'] : null;
+            switch ((string) ($in['islem'] ?? '')) {
+                case 'ekle': // mevcut hakkın üzerine N soru
+                    if ($n === null || $n < 1 || $n > 10000) {
+                        fail_json(400, 'Eklenecek hak 1 ile 10000 arasında olmalı.');
+                    }
+                    $cur = user_ai_override($tid)['limit'] ?? ai_free_limit();
+                    umeta_set($tid, 'ai_limit', (string) min(1000000, $cur + $n));
+                    umeta_set($tid, 'ai_sinirsiz', null);
+                    break;
+                case 'belirle': // toplam hak = N
+                    if ($n === null || $n < 0 || $n > 1000000) {
+                        fail_json(400, 'Hak 0 ile 1000000 arasında olmalı.');
+                    }
+                    umeta_set($tid, 'ai_limit', (string) $n);
+                    umeta_set($tid, 'ai_sinirsiz', null);
+                    break;
+                case 'sinirsiz':
+                    umeta_set($tid, 'ai_sinirsiz', !empty($in['deger']) ? '1' : null);
+                    break;
+                case 'varsayilan':
+                    umeta_set($tid, 'ai_limit', null);
+                    umeta_set($tid, 'ai_sinirsiz', null);
+                    break;
+                case 'sifirla': // kullanılan soruları sıfırla
+                    db()->prepare('DELETE FROM ai_sorgular WHERE kullanici_id = ?')->execute([$tid]);
+                    break;
+                default:
+                    fail_json(400, 'Geçersiz işlem.');
+            }
+            json_out(['ok' => true, 'kullanici' => users_admin_list($tid)[0] ?? null]);
+            break;
+
+        case 'kullanici-durum':
+            $me = require_admin();
+            require_app_header();
+            $in = read_json();
+            $t = admin_target($me, (int) ($in['id'] ?? 0));
+            db()->prepare('UPDATE kullanicilar SET aktif = ? WHERE id = ?')->execute([!empty($in['aktif']) ? 1 : 0, (int) $t['id']]);
+            json_out(['ok' => true, 'kullanici' => users_admin_list((int) $t['id'])[0] ?? null]);
             break;
 
         case 'ai-test':
@@ -456,6 +511,77 @@ function require_admin(): array
         fail_json(403, 'Bu ayarları yalnızca site yöneticisi değiştirebilir.');
     }
     return $u;
+}
+
+/** Yöneticinin işlem yapabileceği başka bir kullanıcı (kendisi ya da başka yönetici değil) */
+function admin_target(array $me, int $id): array
+{
+    $t = user_by_id($id);
+    if (!$t) {
+        fail_json(404, 'Kullanıcı bulunamadı.');
+    }
+    if ((int) $t['id'] === (int) $me['id'] || (int) $t['yonetici'] === 1) {
+        fail_json(400, 'Yönetici hesabı zaten sınırsızdır ve kapatılamaz.');
+    }
+    return $t;
+}
+
+/** Yönetim listesi: kullanıcılar + yapay zekâ kullanımı (tek kullanıcı için $only) */
+function users_admin_list(int $only = 0): array
+{
+    $db = db();
+    $sql = 'SELECT ' . ISGORA_USER_COLS . ', olusturma FROM kullanicilar' . ($only ? ' WHERE id = ?' : '') . ' ORDER BY id DESC LIMIT 2000';
+    $st = $db->prepare($sql);
+    $st->execute($only ? [$only] : []);
+    $rows = $st->fetchAll();
+    $used = [];
+    foreach ($db->query('SELECT kullanici_id, COUNT(*) n FROM ai_sorgular GROUP BY kullanici_id')->fetchAll() as $r) {
+        $used[(int) $r['kullanici_id']] = (int) $r['n'];
+    }
+    $ov = [];
+    foreach ($db->query("SELECT kullanici_id, anahtar, deger FROM kullanici_ayarlar WHERE anahtar IN ('ai_limit', 'ai_sinirsiz')")->fetchAll() as $r) {
+        $ov[(int) $r['kullanici_id']][$r['anahtar']] = $r['deger'];
+    }
+    $orgs = [];
+    $def = ai_free_limit();
+    $shared = shared_ai_key() !== '';
+    $out = [];
+    foreach ($rows as $u) {
+        $id = (int) $u['id'];
+        $o = $ov[$id] ?? [];
+        $oid = (int) ($u['osgb_id'] ?? 0);
+        if ($oid && !array_key_exists($oid, $orgs)) {
+            $org = user_by_id($oid);
+            $orgs[$oid] = $org ? ['id' => $oid, 'ad' => user_org_name($org), 'yonetici' => (int) $org['yonetici'] === 1] : null;
+        }
+        $org = $oid ? $orgs[$oid] : null;
+        $sinirsiz = ($o['ai_sinirsiz'] ?? '') === '1';
+        $lim = isset($o['ai_limit']) ? (int) $o['ai_limit'] : null;
+        $unlimited = (int) $u['yonetici'] === 1 || $sinirsiz || ($lim === null && $org && $org['yonetici']);
+        $p = user_profile($u);
+        $out[] = [
+            'id' => $id,
+            'ad_soyad' => (string) ($u['ad_soyad'] ?: ($p['ad_soyad'] ?? '')),
+            'eposta' => (string) ($u['eposta'] ?: $u['kullanici_adi']),
+            'telefon' => (string) ($p['telefon'] ?? ''),
+            'kurum' => (string) ($p['kurum'] ?? ''),
+            'rol' => user_role($u),
+            'yonetici' => (int) $u['yonetici'] === 1,
+            'osgb' => $org ? ['id' => $org['id'], 'ad' => $org['ad']] : null,
+            'aktif' => (int) $u['aktif'] === 1,
+            'dogrulandi' => (int) $u['dogrulandi'] === 1,
+            'olusturma' => (string) ($u['olusturma'] ?? ''),
+            'son_giris' => $u['son_giris'] ?: null,
+            'ai' => [
+                'used' => $used[$id] ?? 0,
+                'limit' => $lim ?? $def,
+                'unlimited' => (bool) $unlimited,
+                'ozel' => $sinirsiz ? 'sinirsiz' : ($lim !== null ? 'limit' : null),
+                'aktif' => $shared,
+            ],
+        ];
+    }
+    return $out;
 }
 
 /** Sunucu ayarları: gizli alanlar geri gönderilmez, yalnızca tanımlı olup olmadıkları */
