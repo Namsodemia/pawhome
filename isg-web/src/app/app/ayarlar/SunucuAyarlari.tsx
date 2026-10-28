@@ -88,7 +88,7 @@ function FormGorunum({ data, onSaved }: { data: SiteSettings; onSaved: (d: SiteS
   const dirty = useMemo(() => JSON.stringify(v) !== JSON.stringify(data.values) || !!apiKey.trim() || !!smtpPass, [v, data.values, apiKey, smtpPass]);
   const key = data.secrets.anthropic_api_key;
 
-  async function save() {
+  async function save(): Promise<boolean> {
     setBusy(true);
     const changed: Partial<SiteValues> & SiteSecrets = {};
     for (const k of Object.keys(v) as (keyof SiteValues)[]) {
@@ -96,12 +96,14 @@ function FormGorunum({ data, onSaved }: { data: SiteSettings; onSaved: (d: SiteS
     }
     if (apiKey.trim()) changed.anthropic_api_key = apiKey.trim();
     if (smtpPass) changed.smtp_pass = smtpPass;
-    if (await kaydet(changed, onSaved)) {
+    const ok = await kaydet(changed, onSaved);
+    if (ok) {
       setApiKey("");
       setSmtpPass("");
       setAiTest(null);
     }
     setBusy(false);
+    return ok;
   }
 
   async function removeSecret(which: "anthropic_api_key" | "smtp_pass") {
@@ -115,6 +117,8 @@ function FormGorunum({ data, onSaved }: { data: SiteSettings; onSaved: (d: SiteS
   }
 
   async function testAi() {
+    // Kaydedilmemiş değişiklik varsa önce kaydet: test her zaman sunucudaki ayarlarla yapılır
+    if (dirty && !(await save())) return;
     setTesting("ai");
     try {
       setAiTest(await aiAnahtarTest());
@@ -171,8 +175,8 @@ function FormGorunum({ data, onSaved }: { data: SiteSettings; onSaved: (d: SiteS
           </Field>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button kind="secondary" small icon={PlugZap} onClick={() => void testAi()} loading={testing === "ai"} disabled={!key.set}>
-            Anahtarı test et (hak harcamaz)
+          <Button kind="secondary" small icon={PlugZap} onClick={() => void testAi()} loading={testing === "ai" || (busy && !testing)} disabled={!key.set && !apiKey.trim()}>
+            {dirty ? "Kaydet ve test et" : "Anahtarı test et (hak harcamaz)"}
           </Button>
           {key.set && !key.fromConfig ? (
             <Button kind="ghost" small icon={Trash2} onClick={() => void removeSecret("anthropic_api_key")}>
@@ -186,7 +190,7 @@ function FormGorunum({ data, onSaved }: { data: SiteSettings; onSaved: (d: SiteS
             <span className="min-w-0 break-words">{aiTest.message}</span>
           </div>
         ) : null}
-        <p className="text-[12px] leading-relaxed text-muted">Kaydettikten sonra test edin: kaydedilmemiş anahtar denenmez.</p>
+        <p className="text-[12px] leading-relaxed text-muted">Test, soru hakkı harcamaz; kaydedilmemiş değişiklikler önce kaydedilir.</p>
       </Bolum>
 
       <Bolum icon={UserPlus} title="Kayıt">
